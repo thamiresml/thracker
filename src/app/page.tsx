@@ -4,7 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
 import { Briefcase, Star, Users } from 'lucide-react';
 import Link from 'next/link';
-
+import CompanyLogo from '@/components/CompanyLogo';
 import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -121,20 +121,12 @@ export default async function Dashboard() {
                   className="px-6 py-4 flex items-center justify-between"
                 >
                   <div className="flex items-center">
-                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden mr-3">
-                      {app.companies?.logo ? (
-                        <img
-                          src={app.companies.logo}
-                          alt={`${app.companies.name} logo`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-gray-500 font-medium">
-                          {app.companies?.name.charAt(0) || '?'}
-                        </span>
-                      )}
-                    </div>
-                    <div>
+                    <CompanyLogo 
+                      logo={app.companies?.logo} 
+                      name={app.companies?.name || '?'} 
+                      size="sm" 
+                    />
+                    <div className="ml-4">
                       <p className="font-medium text-gray-900">{app.position}</p>
                       <p className="text-sm text-gray-500">{app.companies?.name}</p>
                     </div>
@@ -181,20 +173,12 @@ export default async function Dashboard() {
                   className="px-6 py-4 flex items-center justify-between"
                 >
                   <div className="flex items-center">
-                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden mr-3">
-                      {interaction.companies?.logo ? (
-                        <img
-                          src={interaction.companies.logo}
-                          alt={`${interaction.companies.name} logo`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-gray-500 font-medium">
-                          {interaction.companies?.name.charAt(0) || '?'}
-                        </span>
-                      )}
-                    </div>
-                    <div>
+                    <CompanyLogo 
+                      logo={interaction.companies?.logo} 
+                      name={interaction.companies?.name || '?'} 
+                      size="sm" 
+                    />
+                    <div className="ml-4">
                       <p className="font-medium text-gray-900">{interaction.contact_name}</p>
                       <p className="text-sm text-gray-500">
                         {interaction.contact_role} at {interaction.companies?.name}

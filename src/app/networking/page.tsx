@@ -21,6 +21,9 @@ export default async function NetworkingPage() {
     redirect('/auth/login');
   }
   
+  // Get authenticated user data for safety
+  const { data: { user } } = await supabase.auth.getUser();
+
   // Fetch interactions with company data
   const { data: interactions, error } = await supabase
     .from('interactions')
@@ -28,7 +31,7 @@ export default async function NetworkingPage() {
       *,
       companies (id, name, logo)
     `)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user?.id)
     .order('interaction_date', { ascending: false });
   
   if (error) {

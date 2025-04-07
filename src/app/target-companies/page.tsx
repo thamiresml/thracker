@@ -21,12 +21,15 @@ export default async function TargetCompaniesPage() {
   if (!session) {
     redirect('/auth/login');
   }
+
+  // Get authenticated user data for safety
+  const { data: { user } } = await supabase.auth.getUser();
   
   // Fetch companies marked as targets
   const { data: companies, error } = await supabase
     .from('companies')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user?.id)
     .eq('is_target', true)
     .order('name');
   

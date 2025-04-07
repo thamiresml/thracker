@@ -13,7 +13,7 @@ interface PageProps {
 export const dynamic = 'force-dynamic';
 
 export default async function ApplicationDetailPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
   const supabase = await createClient();
   
   // Check authentication

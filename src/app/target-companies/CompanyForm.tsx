@@ -49,12 +49,12 @@ export default function CompanyForm({ onClose, companyId, isTarget = false }: Co
         if (error) throw error;
         
         if (data) {
-          // Pre-fill form
-          setValue('name', data.name);
-          setValue('website', data.website || undefined);
-          setValue('logo', data.logo || undefined);
-          setValue('notes', data.notes || undefined);
-        }
+            // Pre-fill form
+            setValue('name', data.name);
+            setValue('website', data.website || undefined);
+            setValue('logo', data.logo || undefined);
+            setValue('notes', data.notes || undefined);
+          }
       } catch (error: any) {
         setError(error.message);
       }

@@ -9,6 +9,7 @@ import { Briefcase, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
 import CompanyLogo from '@/components/CompanyLogo';
+import EmptyStateWithAction from './EmptyStateWithAction';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,9 @@ export default async function ApplicationsPage() {
   if (!session) {
     redirect('/auth/login');
   }
+
+  // Get authenticated user data for safety
+    const { data: { user } } = await supabase.auth.getUser();
   
   // Fetch applications with company data
   const { data: applications, error } = await supabase
@@ -28,7 +32,7 @@ export default async function ApplicationsPage() {
       *,
       companies (id, name, logo)
     `)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user?.id)
     .order('applied_date', { ascending: false });
   
   if (error) {
