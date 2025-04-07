@@ -1,7 +1,5 @@
 // src/app/applications/page.tsx
 
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
@@ -10,12 +8,12 @@ import EmptyState from '@/components/ui/EmptyState';
 import AddApplicationButton from '@/app/applications/AddApplicationsButton';
 import { Briefcase, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ApplicationsPage() {
-  const cookieStore = cookies();
-  const supabase = createServerComponentClient({ cookies: () => cookieStore });
+  const supabase = await createClient();
   
   const { data: { session } } = await supabase.auth.getSession();
   

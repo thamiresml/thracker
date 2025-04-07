@@ -3,10 +3,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export async function createClient() {
-  // 1) Await the promise so `cookieStore` is the actual cookie object
   const cookieStore = await cookies();
 
-  // 2) Now cookieStore.get / cookieStore.set / cookieStore.delete are valid
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

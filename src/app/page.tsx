@@ -5,17 +5,15 @@ import PageHeader from '@/components/ui/PageHeader';
 import { Briefcase, Star, Users } from 'lucide-react';
 import Link from 'next/link';
 
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Dashboard() {
-  // Use the same approach as /applications/page.tsx
-  const supabase = createServerComponentClient({ cookies });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // Create the supabase client
+  const supabase = await createClient();
+  
+  const { data: { session } } = await supabase.auth.getSession();
 
   // If not logged in, redirect
   if (!session) {
