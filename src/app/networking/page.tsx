@@ -1,18 +1,18 @@
-// src/app/applications/page.tsx
+// src/app/networking/page.tsx
 import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import EmptyState from '@/components/ui/EmptyState';
-import AddApplicationButton from '@/app/applications/AddApplicationsButton';
-import { Briefcase, Plus } from 'lucide-react';
+import { Users, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
+import AddInteractionButton from './AddInteractionButton';
+import EmptyStateWithAction from './EmptyStateWithAction';
 import CompanyLogo from '@/components/CompanyLogo';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ApplicationsPage() {
+export default async function NetworkingPage() {
   const supabase = await createClient();
   
   const { data: { session } } = await supabase.auth.getSession();
@@ -21,43 +21,31 @@ export default async function ApplicationsPage() {
     redirect('/auth/login');
   }
   
-  // Fetch applications with company data
-  const { data: applications, error } = await supabase
-    .from('applications')
+  // Fetch interactions with company data
+  const { data: interactions, error } = await supabase
+    .from('interactions')
     .select(`
       *,
       companies (id, name, logo)
     `)
     .eq('user_id', session.user.id)
-    .order('applied_date', { ascending: false });
+    .order('interaction_date', { ascending: false });
   
   if (error) {
-    console.error('Error fetching applications:', error);
+    console.error('Error fetching interactions:', error);
   }
   
   return (
     <DashboardLayout>
       <PageHeader 
-        title="Applications" 
-        action={<AddApplicationButton />}
+        title="Networking" 
+        action={<AddInteractionButton />}
       />
       
-      {!applications ? (
+      {!interactions ? (
         <LoadingSpinner />
-      ) : applications.length === 0 ? (
-        <EmptyState
-          icon={<Briefcase className="w-12 h-12" />}
-          title="No applications yet"
-          description="Keep track of all your job applications in one place"
-          action={
-            <Link href="/applications/new">
-              <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                <Plus className="mr-2 h-4 w-4" />
-                Add your first application
-              </button>
-            </Link>
-          }
-        />
+      ) : interactions.length === 0 ? (
+        <EmptyStateWithAction />
       ) : (
         <div className="bg-white shadow-sm rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
@@ -68,13 +56,16 @@ export default async function ApplicationsPage() {
                     Company
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Position
+                    Contact
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Role
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Applied Date
+                    Date
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -82,38 +73,41 @@ export default async function ApplicationsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {applications.map((application) => (
-                  <tr key={application.id} className="hover:bg-gray-50">
+                {interactions.map((interaction) => (
+                  <tr key={interaction.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <CompanyLogo 
-                          logo={application.companies?.logo} 
-                          name={application.companies?.name || '?'} 
+                          logo={interaction.companies?.logo} 
+                          name={interaction.companies?.name || '?'} 
                           size="sm" 
                         />
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {application.companies?.name}
+                            {interaction.companies?.name}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{application.position}</div>
+                      <div className="text-sm font-medium text-gray-900">{interaction.contact_name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(application.status)}`}>
-                        {application.status}
-                      </span>
+                      <div className="text-sm text-gray-500">{interaction.contact_role}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(application.applied_date)}
+                      {formatDate(interaction.interaction_date)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
+                        {interaction.interaction_type}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link href={`/applications/${application.id}`} className="text-blue-600 hover:text-blue-900 mr-3">
+                      <Link href={`/networking/${interaction.id}`} className="text-blue-600 hover:text-blue-900 mr-3">
                         View
                       </Link>
-                      <Link href={`/applications/${application.id}/edit`} className="text-blue-600 hover:text-blue-900">
+                      <Link href={`/networking/${interaction.id}/edit`} className="text-blue-600 hover:text-blue-900">
                         Edit
                       </Link>
                     </td>
@@ -129,33 +123,6 @@ export default async function ApplicationsPage() {
 }
 
 // Helper functions
-function getStatusClass(status: string) {
-  switch (status) {
-    case 'Bookmarked':
-      return 'bg-orange-100 text-orange-800';
-    case 'Applying':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'Applied':
-      return 'bg-blue-100 text-blue-800';
-    case 'Interviewing':
-      return 'bg-indigo-100 text-indigo-800';
-    case 'Negotiating':
-      return 'bg-purple-100 text-purple-800';
-    case 'Accepted':
-      return 'bg-green-100 text-green-800';
-    case 'I Withdrew':
-      return 'bg-gray-100 text-gray-800';
-    case 'Not Selected':
-      return 'bg-red-100 text-red-800';
-    case 'No Response 🔊':
-      return 'bg-gray-100 text-gray-800';
-    case 'Archived':
-      return 'bg-gray-100 text-gray-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
-
 function formatDate(dateString: string) {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
@@ -163,4 +130,27 @@ function formatDate(dateString: string) {
     day: 'numeric',
     year: 'numeric'
   }).format(date);
+}
+
+function getInteractionTypeClass(type: string) {
+  switch (type) {
+    case 'Email':
+      return 'bg-blue-100 text-blue-800';
+    case 'Phone':
+      return 'bg-green-100 text-green-800';
+    case 'Video Call':
+      return 'bg-purple-100 text-purple-800';
+    case 'Coffee Chat':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'Interview':
+      return 'bg-indigo-100 text-indigo-800';
+    case 'Meeting':
+      return 'bg-orange-100 text-orange-800';
+    case 'LinkedIn':
+      return 'bg-blue-100 text-blue-800';
+    case 'Event':
+      return 'bg-pink-100 text-pink-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
 }
