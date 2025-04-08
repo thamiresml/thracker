@@ -1,30 +1,51 @@
 // src/components/weekly-plan/SortableItem.tsx
+
 'use client';
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ReactNode } from 'react';
+import { TaskItem } from './TaskItem';
+import { Task } from './TaskBoard';
 
-interface SortableItemProps {
-  id: string;
-  children: ReactNode;
+interface SortableTaskItemProps {
+  id: number;
+  task: Task;
+  onEdit: () => void;
+  onDelete: () => void;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  selectionMode?: boolean;
 }
 
-export function SortableItem({ id, children }: SortableItemProps) {
+export function SortableTaskItem({
+  id,
+  task,
+  onEdit,
+  onDelete,
+  isSelected,
+  onToggleSelect,
+  selectionMode,
+}: SortableTaskItemProps) {
   const {
     attributes,
     listeners,
     setNodeRef,
     transform,
     transition,
-    isDragging,
-  } = useSortable({ id });
+    isDragging
+  } = useSortable({ 
+    id: id,
+    data: {
+      type: 'task',
+      task
+    }
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 999 : 1,
+    zIndex: isDragging ? 1000 : 1,
   };
 
   return (
@@ -34,7 +55,15 @@ export function SortableItem({ id, children }: SortableItemProps) {
       {...attributes}
       {...listeners}
     >
-      {children}
+      <TaskItem
+        task={task}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        isDragging={isDragging}
+        isSelected={isSelected}
+        onToggleSelect={onToggleSelect}
+        selectionMode={selectionMode}
+      />
     </div>
   );
 }

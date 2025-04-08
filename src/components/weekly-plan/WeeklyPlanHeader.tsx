@@ -1,6 +1,4 @@
 // src/components/weekly-plan/WeeklyPlanHeader.tsx
-'use client';
-
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
@@ -30,8 +28,8 @@ export default function WeeklyPlanHeader({
     <div className="bg-white rounded-lg shadow-sm p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <div className="p-2.5 bg-purple-50 rounded-lg">
-            <Calendar className="h-5 w-5 text-purple-600" />
+          <div className="p-2.5 bg-indigo-50 rounded-lg">
+            <Calendar className="h-5 w-5 text-indigo-600" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900">{weekDisplayRange}</h2>
@@ -54,7 +52,7 @@ export default function WeeklyPlanHeader({
             href={currentWeekLink}
             className={`px-3 py-1.5 text-sm rounded-md ${
               isCurrentWeek() 
-                ? 'bg-purple-100 text-purple-700' 
+                ? 'bg-indigo-100 text-indigo-700' 
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >

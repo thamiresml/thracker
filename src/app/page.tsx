@@ -1,4 +1,5 @@
 // src/app/page.tsx
+
 import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
@@ -13,10 +14,10 @@ export default async function Dashboard() {
   // Create the supabase client
   const supabase = await createClient();
   
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user } } = await supabase.auth.getUser();
 
   // If not logged in, redirect
-  if (!session) {
+  if (!user) {
     redirect('/auth/login');
   }
 
@@ -24,7 +25,7 @@ export default async function Dashboard() {
   const { data: companies } = await supabase
     .from('companies')
     .select('*')
-    .eq('user_id', session.user.id);
+    .eq('user_id', user.id);
 
   const { data: applications } = await supabase
     .from('applications')
@@ -32,7 +33,7 @@ export default async function Dashboard() {
       *,
       companies (id, name, logo)
     `)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .order('applied_date', { ascending: false })
     .limit(5);
 
@@ -42,7 +43,7 @@ export default async function Dashboard() {
       *,
       companies (id, name, logo)
     `)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .order('interaction_date', { ascending: false })
     .limit(5);
 

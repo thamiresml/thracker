@@ -12,6 +12,7 @@ interface TaskModalProps {
   onSave: () => void;
   userId: string;
   defaultStatus?: string;
+  weekStartDate?: string; // Add week start date parameter
 }
 
 interface Application {
@@ -36,7 +37,8 @@ export default function TaskModal({
   onClose, 
   onSave, 
   userId,
-  defaultStatus = TASK_STATUS.TODO
+  defaultStatus = TASK_STATUS.TODO,
+  weekStartDate // Use the week start date
 }: TaskModalProps) {
   const supabase = createClient();
   
@@ -79,7 +81,14 @@ export default function TaskModal({
         if (error) throw error;
         
         if (data) {
-          setApplications(data);
+          // Make sure we convert the data to match our Application interface
+          const formattedData: Application[] = data.map(item => ({
+            id: item.id,
+            position: item.position,
+            companies: item.companies
+          }));
+          
+          setApplications(formattedData);
         }
       } catch (err: any) {
         console.error('Error fetching applications:', err);
@@ -108,7 +117,8 @@ export default function TaskModal({
         status,
         due_date: dueDate || null,
         related_application_id: taskType === 'application' ? relatedApplicationId : null,
-        user_id: userId
+        user_id: userId,
+        week_start_date: weekStartDate || null // Include the week start date
       };
       
       if (task) {

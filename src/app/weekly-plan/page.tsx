@@ -13,13 +13,11 @@ import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-interface WeeklyPlanPageProps {
-  searchParams: {
-    week?: string; // ISO date string of any day in the target week
-  };
-}
-
-export default async function WeeklyPlanPage({ searchParams }: WeeklyPlanPageProps) {
+export default async function WeeklyPlanPage({
+  searchParams,
+}: {
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
   // Create supabase client
   const supabase = await createClient();
   
@@ -29,12 +27,28 @@ export default async function WeeklyPlanPage({ searchParams }: WeeklyPlanPagePro
     redirect('/auth/login');
   }
 
-  // Parse week parameter or use current week
+  // Get authenticated user data for security
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/auth/login');
+  }
+
+  // Parse week parameter or use current week - avoiding direct property access
   let currentDate = new Date();
-  if (searchParams.week) {
-    const parsedDate = new Date(searchParams.week);
-    if (!isNaN(parsedDate.getTime())) {
-      currentDate = parsedDate;
+  
+  // This approach avoids accessing searchParams.week directly
+  // Instead we construct an object from searchParams spread to get a copy
+  const params = { ...searchParams };
+  const weekValue = params['week'];
+  
+  if (weekValue && typeof weekValue === 'string') {
+    try {
+      const parsedDate = new Date(weekValue);
+      if (!isNaN(parsedDate.getTime())) {
+        currentDate = parsedDate;
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
     }
   }
 
@@ -73,7 +87,7 @@ export default async function WeeklyPlanPage({ searchParams }: WeeklyPlanPagePro
               <TaskBoard 
                 startDate={weekStart} 
                 endDate={weekEnd} 
-                userId={session.user.id}
+                userId={user.id}
               />
             </Suspense>
           </div>
