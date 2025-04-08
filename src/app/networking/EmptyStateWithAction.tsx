@@ -12,7 +12,7 @@ export default function EmptyStateWithAction() {
     <EmptyState
       icon={<Users className="w-12 h-12" />}
       title="No networking interactions yet"
-      description="Track your networking efforts with company contacts"
+      description="Track your networking activities with company contacts to build relationships"
       action={
         <button 
           onClick={() => router.push('/networking/new')}

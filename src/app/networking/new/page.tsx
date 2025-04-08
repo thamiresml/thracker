@@ -37,7 +37,7 @@ export default async function NewInteractionPage({ searchParams }: { searchParam
       <PageHeader title="New Interaction" />
       
       <div className="bg-white shadow rounded-lg overflow-hidden p-6">
-        <InteractionForm preselectedCompanyId={companyId} />
+        <InteractionForm preselectedCompanyId={companyId} onClose={() => redirect('/networking')} />
       </div>
     </DashboardLayout>
   );

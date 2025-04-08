@@ -21,7 +21,7 @@ interface InteractionFormData {
   interactionDate: string;
   interactionType: string;
   notes?: string;
-  followUpDate?: string;
+  followUpDate?: string | null;
 }
 
 const interactionTypes = [
@@ -38,9 +38,10 @@ const interactionTypes = [
 interface InteractionFormProps {
   onClose: () => void;
   interactionId?: number;
+  preselectedCompanyId?: number;
 }
 
-export default function InteractionForm({ onClose, interactionId }: InteractionFormProps) {
+export default function InteractionForm({ onClose, interactionId, preselectedCompanyId }: InteractionFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -57,6 +58,7 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
     defaultValues: {
       interactionDate: new Date().toISOString().split('T')[0],
       interactionType: 'Email',
+      followUpDate: null // Initialize to null
     }
   });
 
@@ -73,6 +75,11 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
         if (companiesError) throw companiesError;
         setCompanies(companiesData || []);
 
+        // If preselectedCompanyId is provided, set the form value
+        if (preselectedCompanyId) {
+          setValue('companyId', preselectedCompanyId);
+        }
+
         // 2) If editing, load existing interaction
         if (interactionId) {
           const { data: interaction, error: interactionError } = await supabase
@@ -86,13 +93,16 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
           if (interaction) {
             setValue('companyId', interaction.company_id);
             setValue('contactName', interaction.contact_name);
-            setValue('contactRole', interaction.contact_role);
-            setValue('contactEmail', interaction.contact_email);
-            setValue('contactPhone', interaction.contact_phone);
+            setValue('contactRole', interaction.contact_role || '');
+            setValue('contactEmail', interaction.contact_email || '');
+            setValue('contactPhone', interaction.contact_phone || '');
             setValue('interactionDate', interaction.interaction_date);
             setValue('interactionType', interaction.interaction_type);
-            setValue('notes', interaction.notes);
-            setValue('followUpDate', interaction.follow_up_date);
+            setValue('notes', interaction.notes || '');
+            // Only set follow-up date if it exists
+            if (interaction.follow_up_date) {
+              setValue('followUpDate', interaction.follow_up_date);
+            }
           }
         }
       } catch (err: any) {
@@ -101,7 +111,7 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
     };
 
     fetchData();
-  }, [interactionId, setValue, supabase]);
+  }, [interactionId, setValue, supabase, preselectedCompanyId]);
 
   // Handle form submit
   const onSubmit = async (data: InteractionFormData) => {
@@ -114,22 +124,27 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
       if (userError) throw new Error(userError.message);
       if (!user) throw new Error('User not authenticated');
 
+      // Create the interaction object, ensuring follow_up_date is properly handled
+      const interactionData = {
+        company_id: data.companyId,
+        contact_name: data.contactName,
+        contact_role: data.contactRole || null,
+        contact_email: data.contactEmail || null,
+        contact_phone: data.contactPhone || null,
+        interaction_date: data.interactionDate,
+        interaction_type: data.interactionType,
+        notes: data.notes || null,
+        // Only include follow_up_date if it's a non-empty string
+        follow_up_date: data.followUpDate && data.followUpDate.trim() !== '' ? data.followUpDate : null,
+        user_id: user.id
+      };
+
       // 4) Insert/update
       if (interactionId) {
         // Update existing
         const { error } = await supabase
           .from('interactions')
-          .update({
-            company_id: data.companyId,
-            contact_name: data.contactName,
-            contact_role: data.contactRole,
-            contact_email: data.contactEmail,
-            contact_phone: data.contactPhone,
-            interaction_date: data.interactionDate,
-            interaction_type: data.interactionType,
-            notes: data.notes,
-            follow_up_date: data.followUpDate
-          })
+          .update(interactionData)
           .eq('id', interactionId);
 
         if (error) throw error;
@@ -137,18 +152,7 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
         // Create new
         const { error } = await supabase
           .from('interactions')
-          .insert({
-            company_id: data.companyId,
-            contact_name: data.contactName,
-            contact_role: data.contactRole,
-            contact_email: data.contactEmail,
-            contact_phone: data.contactPhone,
-            interaction_date: data.interactionDate,
-            interaction_type: data.interactionType,
-            notes: data.notes,
-            follow_up_date: data.followUpDate,
-            user_id: user.id
-          });
+          .insert(interactionData);
 
         if (error) throw error;
       }
@@ -157,6 +161,7 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
       router.refresh();
       onClose();
     } catch (err: any) {
+      console.error("Form submission error:", err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -331,7 +336,7 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
               <label htmlFor="followUpDate" className="block text-sm font-medium text-gray-700 mb-1">
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
-                  Follow-up Date
+                  Follow-up Date (Optional)
                 </div>
               </label>
               <input
@@ -340,6 +345,7 @@ export default function InteractionForm({ onClose, interactionId }: InteractionF
                 className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
                 {...register('followUpDate')}
               />
+              <p className="mt-1 text-xs text-gray-500">Leave blank if no follow-up is planned</p>
             </div>
           </div>
 

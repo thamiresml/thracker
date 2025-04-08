@@ -139,19 +139,17 @@ function getInteractionTypeClass(type: string) {
   switch (type) {
     case 'Email':
       return 'bg-blue-100 text-blue-800';
-    case 'Phone':
+    case 'Phone Call':
       return 'bg-green-100 text-green-800';
-    case 'Video Call':
+    case 'Video Meeting':
       return 'bg-purple-100 text-purple-800';
+    case 'In-Person Meeting':
+      return 'bg-orange-100 text-orange-800';
     case 'Coffee Chat':
       return 'bg-yellow-100 text-yellow-800';
-    case 'Interview':
+    case 'Informational Interview':
       return 'bg-indigo-100 text-indigo-800';
-    case 'Meeting':
-      return 'bg-orange-100 text-orange-800';
-    case 'LinkedIn':
-      return 'bg-blue-100 text-blue-800';
-    case 'Event':
+    case 'Event/Conference':
       return 'bg-pink-100 text-pink-800';
     default:
       return 'bg-gray-100 text-gray-800';
