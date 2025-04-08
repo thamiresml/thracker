@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { X } from 'lucide-react';
+import { X, Calendar, Briefcase, Building, MapPin, DollarSign } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 interface Company {
@@ -18,6 +18,9 @@ interface ApplicationFormData {
   position: string;
   status: string;
   appliedDate: string;
+  location?: string;
+  salary?: string;
+  notes?: string;
 }
 
 const statusOptions = [
@@ -40,7 +43,7 @@ interface ApplicationFormProps {
 
 export default function ApplicationForm({ onClose, applicationId }: ApplicationFormProps) {
   const router = useRouter();
-  const supabase = createClient(); // Create once, use everywhere
+  const supabase = createClient();
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -85,6 +88,9 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
             setValue('position', application.position);
             setValue('status', application.status);
             setValue('appliedDate', application.applied_date);
+            setValue('location', application.location);
+            setValue('salary', application.salary);
+            setValue('notes', application.notes);
           }
         }
       } catch (err: any) {
@@ -115,7 +121,10 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
             company_id: data.companyId,
             position: data.position,
             status: data.status,
-            applied_date: data.appliedDate
+            applied_date: data.appliedDate,
+            location: data.location,
+            salary: data.salary,
+            notes: data.notes
           })
           .eq('id', applicationId);
 
@@ -129,6 +138,9 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
             position: data.position,
             status: data.status,
             applied_date: data.appliedDate,
+            location: data.location,
+            salary: data.salary,
+            notes: data.notes,
             user_id: user.id
           });
 
@@ -149,34 +161,37 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">
+          <h2 className="text-xl font-semibold text-gray-900">
             {applicationId ? 'Edit Application' : 'Add Application'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
+            className="text-gray-400 hover:text-gray-500 focus:outline-none"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 p-4 rounded-md">
+          <div className="mb-4 bg-red-50 p-4 rounded-md border border-red-200">
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="mb-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div>
             <label htmlFor="companyId" className="block text-sm font-medium text-gray-700 mb-1">
-              Company
+              <div className="flex items-center">
+                <Building className="h-4 w-4 mr-1.5 text-gray-500" />
+                Company
+              </div>
             </label>
             <select
               id="companyId"
               className={`w-full rounded-md border ${
-                errors.companyId ? 'border-red-500' : 'border-gray-300'
-              } shadow-sm focus:border-blue-500 focus:ring-blue-500`}
+                errors.companyId ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
+              } shadow-sm focus:outline-none`}
               {...register('companyId', { required: 'Company is required' })}
             >
               <option value="">Select a company</option>
@@ -193,16 +208,19 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
             )}
           </div>
 
-          <div className="mb-4">
+          <div>
             <label htmlFor="position" className="block text-sm font-medium text-gray-700 mb-1">
-              Position
+              <div className="flex items-center">
+                <Briefcase className="h-4 w-4 mr-1.5 text-gray-500" />
+                Position
+              </div>
             </label>
             <input
               type="text"
               id="position"
               className={`w-full rounded-md border ${
-                errors.position ? 'border-red-500' : 'border-gray-300'
-              } shadow-sm focus:border-blue-500 focus:ring-blue-500`}
+                errors.position ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
+              } shadow-sm focus:outline-none`}
               placeholder="e.g. Frontend Developer"
               {...register('position', { required: 'Position is required' })}
             />
@@ -211,58 +229,110 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
             )}
           </div>
 
-          <div className="mb-4">
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              id="status"
-              className={`w-full rounded-md border ${
-                errors.status ? 'border-red-500' : 'border-gray-300'
-              } shadow-sm focus:border-blue-500 focus:ring-blue-500`}
-              {...register('status', { required: 'Status is required' })}
-            >
-              <option value="">Select status</option>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            {errors.status && (
-              <p className="mt-1 text-xs text-red-600">{errors.status.message}</p>
-            )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                id="status"
+                className={`w-full rounded-md border ${
+                  errors.status ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
+                } shadow-sm focus:outline-none`}
+                {...register('status', { required: 'Status is required' })}
+              >
+                <option value="">Select status</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              {errors.status && (
+                <p className="mt-1 text-xs text-red-600">{errors.status.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="appliedDate" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
+                  Applied Date
+                </div>
+              </label>
+              <input
+                type="date"
+                id="appliedDate"
+                className={`w-full rounded-md border ${
+                  errors.appliedDate ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
+                } shadow-sm focus:outline-none`}
+                {...register('appliedDate', { required: 'Application date is required' })}
+              />
+              {errors.appliedDate && (
+                <p className="mt-1 text-xs text-red-600">{errors.appliedDate.message}</p>
+              )}
+            </div>
           </div>
 
-          <div className="mb-6">
-            <label htmlFor="appliedDate" className="block text-sm font-medium text-gray-700 mb-1">
-              Applied Date
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <MapPin className="h-4 w-4 mr-1.5 text-gray-500" />
+                  Location
+                </div>
+              </label>
+              <input
+                type="text"
+                id="location"
+                className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none"
+                placeholder="e.g. Remote, New York, etc."
+                {...register('location')}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="salary" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <DollarSign className="h-4 w-4 mr-1.5 text-gray-500" />
+                  Salary Range
+                </div>
+              </label>
+              <input
+                type="text"
+                id="salary"
+                className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none"
+                placeholder="e.g. $80,000 - $95,000"
+                {...register('salary')}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+              Notes
             </label>
-            <input
-              type="date"
-              id="appliedDate"
-              className={`w-full rounded-md border ${
-                errors.appliedDate ? 'border-red-500' : 'border-gray-300'
-              } shadow-sm focus:border-blue-500 focus:ring-blue-500`}
-              {...register('appliedDate', { required: 'Application date is required' })}
+            <textarea
+              id="notes"
+              rows={3}
+              className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none"
+              placeholder="Any additional notes about this application..."
+              {...register('notes')}
             />
-            {errors.appliedDate && (
-              <p className="mt-1 text-xs text-red-600">{errors.appliedDate.message}</p>
-            )}
           </div>
 
-          <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+          <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:col-start-1"
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:col-start-2"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {isLoading ? 'Saving...' : applicationId ? 'Update' : 'Save'}
             </button>

@@ -1,26 +1,36 @@
 // src/app/target-companies/CompanyForm.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { X } from 'lucide-react';
+import { X, Building, Globe, DollarSign, LinkIcon, Users, Star } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
-interface CompanyFormData {
+interface TargetCompanyFormData {
   name: string;
   website?: string;
+  industry?: string;
+  size?: string;
   logo?: string;
+  description?: string;
+  priority: string;
   notes?: string;
 }
 
-interface CompanyFormProps {
+const priorityOptions = [
+  'High',
+  'Medium',
+  'Low'
+];
+
+interface TargetCompanyFormProps {
   onClose: () => void;
   companyId?: number;
-  isTarget?: boolean;
 }
 
-export default function CompanyForm({ onClose, companyId, isTarget = false }: CompanyFormProps) {
+export default function TargetCompanyForm({ onClose, companyId }: TargetCompanyFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -32,38 +42,46 @@ export default function CompanyForm({ onClose, companyId, isTarget = false }: Co
     handleSubmit,
     setValue,
     formState: { errors }
-  } = useForm<CompanyFormData>();
+  } = useForm<TargetCompanyFormData>({
+    defaultValues: {
+      priority: 'Medium',
+    }
+  });
 
-  // Load company data if editing
+  // Fetch data if editing existing company
   useEffect(() => {
-    const loadCompany = async () => {
+    const fetchCompany = async () => {
       if (!companyId) return;
       
       try {
-        const { data, error } = await supabase
+        const { data: company, error: companyError } = await supabase
           .from('companies')
           .select('*')
           .eq('id', companyId)
           .single();
-          
-        if (error) throw error;
-        
-        if (data) {
-            // Pre-fill form
-            setValue('name', data.name);
-            setValue('website', data.website || undefined);
-            setValue('logo', data.logo || undefined);
-            setValue('notes', data.notes || undefined);
-          }
-      } catch (error: any) {
-        setError(error.message);
+
+        if (companyError) throw companyError;
+
+        if (company) {
+          setValue('name', company.name);
+          setValue('website', company.website);
+          setValue('industry', company.industry);
+          setValue('size', company.size);
+          setValue('logo', company.logo);
+          setValue('description', company.description);
+          setValue('priority', company.priority || 'Medium');
+          setValue('notes', company.notes);
+        }
+      } catch (err: any) {
+        setError(err.message);
       }
     };
-    
-    loadCompany();
+
+    fetchCompany();
   }, [companyId, setValue, supabase]);
 
-  const onSubmit = async (data: CompanyFormData) => {
+  // Handle form submit
+  const onSubmit = async (data: TargetCompanyFormData) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -80,9 +98,13 @@ export default function CompanyForm({ onClose, companyId, isTarget = false }: Co
           .update({
             name: data.name,
             website: data.website,
+            industry: data.industry,
+            size: data.size,
             logo: data.logo,
+            description: data.description,
+            priority: data.priority,
             notes: data.notes,
-            is_target: isTarget
+            is_target: true
           })
           .eq('id', companyId);
 
@@ -94,9 +116,13 @@ export default function CompanyForm({ onClose, companyId, isTarget = false }: Co
           .insert({
             name: data.name,
             website: data.website,
+            industry: data.industry,
+            size: data.size,
             logo: data.logo,
+            description: data.description,
+            priority: data.priority,
             notes: data.notes,
-            is_target: isTarget,
+            is_target: true,
             user_id: user.id
           });
 
@@ -117,36 +143,39 @@ export default function CompanyForm({ onClose, companyId, isTarget = false }: Co
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">
-            {companyId ? 'Edit Company' : 'Add Company'}
+          <h2 className="text-xl font-semibold text-gray-900">
+            {companyId ? 'Edit Target Company' : 'Add Target Company'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
+            className="text-gray-400 hover:text-gray-500 focus:outline-none"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 p-4 rounded-md">
+          <div className="mb-4 bg-red-50 p-4 rounded-md border border-red-200">
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="mb-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Company Name*
+              <div className="flex items-center">
+                <Building className="h-4 w-4 mr-1.5 text-gray-500" />
+                Company Name
+              </div>
             </label>
             <input
               type="text"
               id="name"
               className={`w-full rounded-md border ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
-              } shadow-sm focus:border-blue-500 focus:ring-blue-500`}
-              placeholder="e.g. Acme Corporation"
+                errors.name ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+              } shadow-sm focus:outline-none`}
+              placeholder="e.g. Acme Inc."
               {...register('name', { required: 'Company name is required' })}
             />
             {errors.name && (
@@ -154,58 +183,129 @@ export default function CompanyForm({ onClose, companyId, isTarget = false }: Co
             )}
           </div>
 
-          <div className="mb-4">
-            <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
-              Website
-            </label>
-            <input
-              type="url"
-              id="website"
-              className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              placeholder="e.g. https://www.example.com"
-              {...register('website')}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <Globe className="h-4 w-4 mr-1.5 text-gray-500" />
+                  Website
+                </div>
+              </label>
+              <input
+                type="text"
+                id="website"
+                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+                placeholder="e.g. https://acme.com"
+                {...register('website')}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="industry" className="block text-sm font-medium text-gray-700 mb-1">
+                Industry
+              </label>
+              <input
+                type="text"
+                id="industry"
+                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+                placeholder="e.g. Technology"
+                {...register('industry')}
+              />
+            </div>
           </div>
 
-          <div className="mb-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="size" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <Users className="h-4 w-4 mr-1.5 text-gray-500" />
+                  Company Size
+                </div>
+              </label>
+              <input
+                type="text"
+                id="size"
+                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+                placeholder="e.g. 100-500 employees"
+                {...register('size')}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <Star className="h-4 w-4 mr-1.5 text-gray-500" />
+                  Priority
+                </div>
+              </label>
+              <select
+                id="priority"
+                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+                {...register('priority')}
+              >
+                {priorityOptions.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
             <label htmlFor="logo" className="block text-sm font-medium text-gray-700 mb-1">
-              Logo URL
+              <div className="flex items-center">
+                <LinkIcon className="h-4 w-4 mr-1.5 text-gray-500" />
+                Logo URL
+              </div>
             </label>
             <input
-              type="url"
+              type="text"
               id="logo"
-              className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              placeholder="e.g. https://www.example.com/logo.png"
+              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+              placeholder="e.g. https://acme.com/logo.png"
               {...register('logo')}
             />
-            <p className="mt-1 text-xs text-gray-500">URL to the company's logo image</p>
           </div>
 
-          <div className="mb-6">
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+              Company Description
+            </label>
+            <textarea
+              id="description"
+              rows={2}
+              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+              placeholder="Brief description of the company..."
+              {...register('description')}
+            />
+          </div>
+
+          <div>
             <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
               Notes
             </label>
             <textarea
               id="notes"
               rows={3}
-              className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              placeholder="Any notes about this company..."
+              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+              placeholder="Why you're interested, contacts, etc."
               {...register('notes')}
-            ></textarea>
+            />
           </div>
 
-          <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+          <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:col-start-1"
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:col-start-2"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {isLoading ? 'Saving...' : companyId ? 'Update' : 'Save'}
             </button>

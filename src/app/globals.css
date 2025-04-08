@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
 :root {
+  --primary: #7c3aed; /* Purple */
+  --primary-light: #a78bfa;
+  --secondary: #10b981; /* Green */
+  --accent: #f97316; /* Orange */
   --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --surface: #f9fafb;
+  --foreground: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
 }
 
 body {
-  background: var(--background);
+  background: var(--surface);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans);
 }
+
+/* Add this to your globals.css */
+
+:root {
+  /* Updated color palette */
+  --primary: #4f46e5; /* Indigo/blue */
+  --primary-hover: #4338ca;
+  --primary-light: #e0e7ff;
+  --primary-dark: #3730a3;
+  --secondary: #10b981; /* Green */
+  --accent: #f97316; /* Orange */
+  --background: #ffffff;
+  --surface: #f9fafb;
+  --foreground: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --waiting: #a78bfa;
+  --denied: #ef4444;
+  --success: #10b981;
+}
+
+/* Primary Button */
+.btn-primary {
+  @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white 
+  bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+}
+
+/* Secondary Button */
+.btn-secondary {
+  @apply inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium 
+  text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500;
+}
+
+/* Add Application Button - specific styling */
