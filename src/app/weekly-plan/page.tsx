@@ -33,12 +33,12 @@ export default async function WeeklyPlanPage({
     redirect('/auth/login');
   }
 
-  // Parse week parameter or use current week - avoiding direct property access
+  // Properly await searchParams before accessing properties
+  const params = await searchParams;
+  
+  // Parse week parameter or use current week
   let currentDate = new Date();
   
-  // This approach avoids accessing searchParams.week directly
-  // Instead we construct an object from searchParams spread to get a copy
-  const params = { ...searchParams };
   const weekValue = params['week'];
   
   if (weekValue && typeof weekValue === 'string') {

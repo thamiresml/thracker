@@ -4,48 +4,41 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { X, Calendar, Building, Users, Mail, Phone, MessageSquare } from 'lucide-react';
+import { X, Calendar, User, MessageSquare, AlertCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { INTERACTION_TYPES } from '@/types/networking';
 
-interface Company {
+interface Contact {
   id: number;
   name: string;
+  company?: {
+    name: string;
+  };
 }
 
 interface InteractionFormData {
-  companyId: number;
-  contactName: string;
-  contactRole?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  interactionDate: string;
-  interactionType: string;
+  contact_id: number;
+  interaction_date: string;
+  interaction_type: string;
   notes?: string;
-  followUpDate?: string | null;
+  follow_up_date?: string | null;
 }
-
-const interactionTypes = [
-  'Email',
-  'Phone Call',
-  'Video Meeting',
-  'In-Person Meeting',
-  'Coffee Chat',
-  'Informational Interview',
-  'Event/Conference',
-  'Other'
-];
 
 interface InteractionFormProps {
   onClose: () => void;
   interactionId?: number;
-  preselectedCompanyId?: number;
+  preselectedContactId?: number;
 }
 
-export default function InteractionForm({ onClose, interactionId, preselectedCompanyId }: InteractionFormProps) {
+export default function InteractionForm({ 
+  onClose, 
+  interactionId, 
+  preselectedContactId 
+}: InteractionFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,28 +49,61 @@ export default function InteractionForm({ onClose, interactionId, preselectedCom
     formState: { errors }
   } = useForm<InteractionFormData>({
     defaultValues: {
-      interactionDate: new Date().toISOString().split('T')[0],
-      interactionType: 'Email',
-      followUpDate: null // Initialize to null
+      interaction_date: new Date().toISOString().split('T')[0],
+      interaction_type: 'Email',
+      follow_up_date: null // Initialize to null
     }
   });
 
-  // Fetch data on mount or when interactionId changes
+  // Fetch data on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1) Load companies
-        const { data: companiesData, error: companiesError } = await supabase
-          .from('companies')
-          .select('id, name')
+        // 1) Load contacts
+        const { data: contactsData, error: contactsError } = await supabase
+          .from('contacts')
+          .select(`
+            id,
+            name,
+            company:companies(name)
+          `)
           .order('name');
 
-        if (companiesError) throw companiesError;
-        setCompanies(companiesData || []);
+        if (contactsError) throw contactsError;
+        
+        // Transform the data to match our Contact interface
+        const formattedContacts: Contact[] = [];
+        
+        contactsData?.forEach((contact: any) => {
+          const formattedContact: Contact = {
+            id: contact.id,
+            name: contact.name
+          };
+          
+          // Handle company data if it exists
+          if (contact.company && typeof contact.company === 'object') {
+            // If company is a single object
+            if (!Array.isArray(contact.company)) {
+              formattedContact.company = {
+                name: typeof contact.company.name === 'string' ? contact.company.name : ''
+              };
+            } 
+            // If company is an array with one object
+            else if (Array.isArray(contact.company) && contact.company.length > 0) {
+              formattedContact.company = {
+                name: typeof contact.company[0].name === 'string' ? contact.company[0].name : ''
+              };
+            }
+          }
+          
+          formattedContacts.push(formattedContact);
+        });
+        
+        setContacts(formattedContacts);
 
-        // If preselectedCompanyId is provided, set the form value
-        if (preselectedCompanyId) {
-          setValue('companyId', preselectedCompanyId);
+        // If preselectedContactId is provided, set the form value
+        if (preselectedContactId) {
+          setValue('contact_id', preselectedContactId);
         }
 
         // 2) If editing, load existing interaction
@@ -91,17 +117,13 @@ export default function InteractionForm({ onClose, interactionId, preselectedCom
           if (interactionError) throw interactionError;
 
           if (interaction) {
-            setValue('companyId', interaction.company_id);
-            setValue('contactName', interaction.contact_name);
-            setValue('contactRole', interaction.contact_role || '');
-            setValue('contactEmail', interaction.contact_email || '');
-            setValue('contactPhone', interaction.contact_phone || '');
-            setValue('interactionDate', interaction.interaction_date);
-            setValue('interactionType', interaction.interaction_type);
+            setValue('contact_id', interaction.contact_id);
+            setValue('interaction_date', interaction.interaction_date);
+            setValue('interaction_type', interaction.interaction_type);
             setValue('notes', interaction.notes || '');
             // Only set follow-up date if it exists
             if (interaction.follow_up_date) {
-              setValue('followUpDate', interaction.follow_up_date);
+              setValue('follow_up_date', interaction.follow_up_date);
             }
           }
         }
@@ -111,7 +133,7 @@ export default function InteractionForm({ onClose, interactionId, preselectedCom
     };
 
     fetchData();
-  }, [interactionId, setValue, supabase, preselectedCompanyId]);
+  }, [interactionId, setValue, supabase, preselectedContactId]);
 
   // Handle form submit
   const onSubmit = async (data: InteractionFormData) => {
@@ -119,27 +141,24 @@ export default function InteractionForm({ onClose, interactionId, preselectedCom
       setIsLoading(true);
       setError(null);
 
-      // 3) Get current user
+      // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw new Error(userError.message);
       if (!user) throw new Error('User not authenticated');
 
-      // Create the interaction object, ensuring follow_up_date is properly handled
+      // Create the interaction object
       const interactionData = {
-        company_id: data.companyId,
-        contact_name: data.contactName,
-        contact_role: data.contactRole || null,
-        contact_email: data.contactEmail || null,
-        contact_phone: data.contactPhone || null,
-        interaction_date: data.interactionDate,
-        interaction_type: data.interactionType,
+        contact_id: data.contact_id,
+        interaction_date: data.interaction_date,
+        interaction_type: data.interaction_type,
         notes: data.notes || null,
         // Only include follow_up_date if it's a non-empty string
-        follow_up_date: data.followUpDate && data.followUpDate.trim() !== '' ? data.followUpDate : null,
+        follow_up_date: data.follow_up_date && data.follow_up_date.trim() !== '' 
+          ? data.follow_up_date 
+          : null,
         user_id: user.id
       };
 
-      // 4) Insert/update
       if (interactionId) {
         // Update existing
         const { error } = await supabase
@@ -155,6 +174,20 @@ export default function InteractionForm({ onClose, interactionId, preselectedCom
           .insert(interactionData);
 
         if (error) throw error;
+        
+        // Update contact status to "Following Up" if it was "To Reach Out"
+        const { data: contactData } = await supabase
+          .from('contacts')
+          .select('status')
+          .eq('id', data.contact_id)
+          .single();
+          
+        if (contactData && contactData.status === 'To Reach Out') {
+          await supabase
+            .from('contacts')
+            .update({ status: 'Following Up' })
+            .eq('id', data.contact_id);
+        }
       }
 
       // Refresh page & close
@@ -185,168 +218,99 @@ export default function InteractionForm({ onClose, interactionId, preselectedCom
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 p-4 rounded-md border border-red-200">
+          <div className="mb-4 bg-red-50 p-4 rounded-md border border-red-200 flex items-start">
+            <AlertCircle className="h-5 w-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
-            <label htmlFor="companyId" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="contact_id" className="block text-sm font-medium text-gray-700 mb-1">
               <div className="flex items-center">
-                <Building className="h-4 w-4 mr-1.5 text-gray-500" />
-                Company
+                <User className="h-4 w-4 mr-1.5 text-gray-500" />
+                Contact*
               </div>
             </label>
             <select
-              id="companyId"
+              id="contact_id"
               className={`w-full rounded-md border ${
-                errors.companyId ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                errors.contact_id ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
               } shadow-sm focus:outline-none`}
-              {...register('companyId', { required: 'Company is required' })}
+              {...register('contact_id', { required: 'Contact is required' })}
             >
-              <option value="">Select a company</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
+              <option value="">Select a contact</option>
+              {contacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.name} {contact.company?.name ? `(${contact.company.name})` : ''}
                 </option>
               ))}
             </select>
-            {errors.companyId && (
+            {errors.contact_id && (
               <p className="mt-1 text-xs text-red-600">
-                {errors.companyId.message}
+                {errors.contact_id.message}
               </p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="contactName" className="block text-sm font-medium text-gray-700 mb-1">
-              <div className="flex items-center">
-                <Users className="h-4 w-4 mr-1.5 text-gray-500" />
-                Contact Name
-              </div>
-            </label>
-            <input
-              type="text"
-              id="contactName"
-              className={`w-full rounded-md border ${
-                errors.contactName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-              } shadow-sm focus:outline-none`}
-              placeholder="e.g. John Smith"
-              {...register('contactName', { required: 'Contact name is required' })}
-            />
-            {errors.contactName && (
-              <p className="mt-1 text-xs text-red-600">{errors.contactName.message}</p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="contactRole" className="block text-sm font-medium text-gray-700 mb-1">
-                Contact Role
+              <label htmlFor="interaction_date" className="block text-sm font-medium text-gray-700 mb-1">
+                <div className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
+                  Interaction Date*
+                </div>
               </label>
               <input
-                type="text"
-                id="contactRole"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
-                placeholder="e.g. Engineering Manager"
-                {...register('contactRole')}
+                type="date"
+                id="interaction_date"
+                className={`w-full rounded-md border ${
+                  errors.interaction_date ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                } shadow-sm focus:outline-none`}
+                {...register('interaction_date', { required: 'Interaction date is required' })}
               />
+              {errors.interaction_date && (
+                <p className="mt-1 text-xs text-red-600">{errors.interaction_date.message}</p>
+              )}
             </div>
 
             <div>
-              <label htmlFor="interactionType" className="block text-sm font-medium text-gray-700 mb-1">
-                Interaction Type
+              <label htmlFor="interaction_type" className="block text-sm font-medium text-gray-700 mb-1">
+                Interaction Type*
               </label>
               <select
-                id="interactionType"
+                id="interaction_type"
                 className={`w-full rounded-md border ${
-                  errors.interactionType ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                  errors.interaction_type ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
                 } shadow-sm focus:outline-none`}
-                {...register('interactionType', { required: 'Interaction type is required' })}
+                {...register('interaction_type', { required: 'Interaction type is required' })}
               >
-                {interactionTypes.map((type) => (
+                {INTERACTION_TYPES.map((type) => (
                   <option key={type} value={type}>
                     {type}
                   </option>
                 ))}
               </select>
-              {errors.interactionType && (
-                <p className="mt-1 text-xs text-red-600">{errors.interactionType.message}</p>
+              {errors.interaction_type && (
+                <p className="mt-1 text-xs text-red-600">{errors.interaction_type.message}</p>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                <div className="flex items-center">
-                  <Mail className="h-4 w-4 mr-1.5 text-gray-500" />
-                  Email
-                </div>
-              </label>
-              <input
-                type="email"
-                id="contactEmail"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
-                placeholder="e.g. john@example.com"
-                {...register('contactEmail')}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">
-                <div className="flex items-center">
-                  <Phone className="h-4 w-4 mr-1.5 text-gray-500" />
-                  Phone
-                </div>
-              </label>
-              <input
-                type="tel"
-                id="contactPhone"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
-                placeholder="e.g. (123) 456-7890"
-                {...register('contactPhone')}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="interactionDate" className="block text-sm font-medium text-gray-700 mb-1">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
-                  Interaction Date
-                </div>
-              </label>
-              <input
-                type="date"
-                id="interactionDate"
-                className={`w-full rounded-md border ${
-                  errors.interactionDate ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-                } shadow-sm focus:outline-none`}
-                {...register('interactionDate', { required: 'Interaction date is required' })}
-              />
-              {errors.interactionDate && (
-                <p className="mt-1 text-xs text-red-600">{errors.interactionDate.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="followUpDate" className="block text-sm font-medium text-gray-700 mb-1">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
-                  Follow-up Date (Optional)
-                </div>
-              </label>
-              <input
-                type="date"
-                id="followUpDate"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
-                {...register('followUpDate')}
-              />
-              <p className="mt-1 text-xs text-gray-500">Leave blank if no follow-up is planned</p>
-            </div>
+          <div>
+            <label htmlFor="follow_up_date" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="flex items-center">
+                <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
+                Follow-up Date (Optional)
+              </div>
+            </label>
+            <input
+              type="date"
+              id="follow_up_date"
+              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+              {...register('follow_up_date')}
+            />
+            <p className="mt-1 text-xs text-gray-500">Leave blank if no follow-up is planned</p>
           </div>
 
           <div>
@@ -376,9 +340,9 @@ export default function InteractionForm({ onClose, interactionId, preselectedCom
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Saving...' : interactionId ? 'Update' : 'Save'}
+              {isLoading ? 'Saving...' : interactionId ? 'Update Interaction' : 'Save Interaction'}
             </button>
           </div>
         </form>

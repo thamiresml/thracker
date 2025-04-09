@@ -3,16 +3,41 @@ import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { Users, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
-import AddInteractionButton from './AddInteractionButton';
-import EmptyStateWithAction from './EmptyStateWithAction';
-import CompanyLogo from '@/components/CompanyLogo';
+import ContactsEmptyState from './ContactsEmptyState';
+import ContactsList from './ContactList';
+import ContactsFilter from './ContactsFilter';
+import AddContactButton from './AddContactButton';
+import { Contact } from '@/types/networking';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NetworkingPage() {
+interface SearchParams {
+  query?: string;
+  status?: string;
+  companyId?: string;
+  isAlumni?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+export default async function NetworkingPage({ 
+  searchParams 
+}: { 
+  searchParams: SearchParams 
+}) {
+  // Await the searchParams to avoid Next.js warnings
+  const params = await searchParams;
+  
+  // Parse search parameters
+  const query = params.query || '';
+  const status = params.status || '';
+  const companyId = params.companyId || '';
+  const isAlumni = params.isAlumni === 'true';
+  const sortBy = params.sortBy || 'last_interaction_date';
+  const sortOrder = params.sortOrder || 'desc';
+  
   const supabase = await createClient();
   
   const { data: { session } } = await supabase.auth.getSession();
@@ -21,137 +46,192 @@ export default async function NetworkingPage() {
     redirect('/auth/login');
   }
   
-  // Get authenticated user data for safety
+  // Get authenticated user data
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/auth/login');
+  }
 
-  // Fetch interactions with company data
-  const { data: interactions, error } = await supabase
+  // Create a simple query to get contacts first, then manually join with other data
+  // This avoids the foreign key relationship error
+  let { data: contacts, error } = await supabase
+    .from('contacts')
+    .select('*')
+    .eq('user_id', user.id);
+
+  if (error) {
+    console.error('Error fetching contacts:', error);
+    contacts = [];
+  }
+
+  // Apply filters to the contacts after fetching
+  let filteredContacts = contacts || [];
+  
+  if (query) {
+    const lowerQuery = query.toLowerCase();
+    filteredContacts = filteredContacts.filter(
+      contact => 
+        contact.name.toLowerCase().includes(lowerQuery) || 
+        (contact.role && contact.role.toLowerCase().includes(lowerQuery)) || 
+        (contact.email && contact.email.toLowerCase().includes(lowerQuery))
+    );
+  }
+  
+  if (status) {
+    filteredContacts = filteredContacts.filter(contact => contact.status === status);
+  }
+  
+  if (companyId) {
+    filteredContacts = filteredContacts.filter(contact => contact.company_id.toString() === companyId);
+  }
+  
+  if (isAlumni) {
+    filteredContacts = filteredContacts.filter(contact => contact.is_alumni === true);
+  }
+  
+  // Now get additional data for each contact
+  const contactIds = filteredContacts.map(contact => contact.id);
+  
+  // Get company data for the filtered contacts
+  const { data: companiesData } = await supabase
+    .from('companies')
+    .select('id, name, logo')
+    .in('id', filteredContacts.map(c => c.company_id))
+    .order('name');
+  
+  // Create a map of company data by id for easy lookup
+  const companiesMap = (companiesData || []).reduce((map, company) => {
+    map[company.id] = company;
+    return map;
+  }, {} as Record<number, any>);
+
+  // Get interactions data for the filtered contacts
+  const { data: interactionsData } = await supabase
     .from('interactions')
-    .select(`
-      *,
-      companies (id, name, logo)
-    `)
-    .eq('user_id', user?.id)
+    .select('contact_id, interaction_date')
+    .in('contact_id', contactIds)
     .order('interaction_date', { ascending: false });
   
-  if (error) {
-    console.error('Error fetching interactions:', error);
+  // Group interactions by contact_id
+  const interactionsByContact = (interactionsData || []).reduce((grouped, interaction) => {
+    if (!grouped[interaction.contact_id]) {
+      grouped[interaction.contact_id] = [];
+    }
+    grouped[interaction.contact_id].push(interaction);
+    return grouped;
+  }, {} as Record<number, any[]>);
+  
+  // Combine all the data into processed contacts
+  const processedContacts: Contact[] = filteredContacts.map(contact => {
+    // Get interactions for this contact
+    const contactInteractions = interactionsByContact[contact.id] || [];
+    const interactionsCount = contactInteractions.length;
+    
+    // Get last interaction date
+    let lastInteractionDate = null;
+    if (contactInteractions.length > 0) {
+      // Get the most recent date
+      lastInteractionDate = contactInteractions[0].interaction_date;
+    }
+    
+    // Get company info
+    const company = companiesMap[contact.company_id];
+    
+    return {
+      ...contact,
+      last_interaction_date: lastInteractionDate,
+      interactions_count: interactionsCount,
+      company: company ? {
+        id: company.id,
+        name: company.name,
+        logo: company.logo
+      } : undefined
+    };
+  });
+  
+  // Sort the processed contacts
+  if (sortBy === 'name') {
+    processedContacts.sort((a, b) => {
+      const result = a.name.localeCompare(b.name);
+      return sortOrder === 'asc' ? result : -result;
+    });
+  } else if (sortBy === 'last_interaction_date') {
+    processedContacts.sort((a, b) => {
+      if (!a.last_interaction_date && !b.last_interaction_date) return 0;
+      if (!a.last_interaction_date) return sortOrder === 'asc' ? -1 : 1;
+      if (!b.last_interaction_date) return sortOrder === 'asc' ? 1 : -1;
+      
+      const dateA = new Date(a.last_interaction_date);
+      const dateB = new Date(b.last_interaction_date);
+      const result = dateA.getTime() - dateB.getTime();
+      return sortOrder === 'asc' ? result : -result;
+    });
   }
+  
+  // Fetch all available statuses for the filter
+  const { data: statusesData } = await supabase
+    .from('contacts')
+    .select('status')
+    .eq('user_id', user.id)
+    .is('status', 'not.null');
+  
+  // Extract unique statuses
+  const uniqueStatuses = new Set();
+  statusesData?.forEach(item => {
+    if (item.status) uniqueStatuses.add(item.status);
+  });
+  
+  // Default statuses list
+  const defaultStatuses = [
+    'Active', 'To Reach Out', 'Connected', 'Following Up', 'Dormant', 'Archived'
+  ];
+  
+  // Add default statuses if they don't exist in the data
+  defaultStatuses.forEach(status => uniqueStatuses.add(status));
+  
+  // Convert to sorted array
+  const availableStatuses = Array.from(uniqueStatuses).sort() as string[];
+  
+  // Fetch companies for filter
+  const { data: companies } = await supabase
+    .from('companies')
+    .select('id, name')
+    .eq('user_id', user.id)
+    .order('name');
   
   return (
     <DashboardLayout>
       <PageHeader 
-        title="Networking" 
-        action={<AddInteractionButton />}
+        title="Network Contacts" 
+        action={<AddContactButton />}
       />
       
-      {!interactions ? (
-        <LoadingSpinner />
-      ) : interactions.length === 0 ? (
-        <EmptyStateWithAction />
+      {processedContacts.length === 0 && !query && !status && !companyId ? (
+        <ContactsEmptyState />
       ) : (
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Company
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {interactions.map((interaction) => (
-                  <tr key={interaction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <CompanyLogo 
-                          logo={interaction.companies?.logo} 
-                          name={interaction.companies?.name || '?'} 
-                          size="sm" 
-                        />
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {interaction.companies?.name}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{interaction.contact_name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{interaction.contact_role}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(interaction.interaction_date)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
-                        {interaction.interaction_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link href={`/networking/${interaction.id}`} className="text-blue-600 hover:text-blue-900 mr-3">
-                        View
-                      </Link>
-                      <Link href={`/networking/${interaction.id}/edit`} className="text-blue-600 hover:text-blue-900">
-                        Edit
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="space-y-6">
+          {/* Search and Filters */}
+          <ContactsFilter 
+            statuses={availableStatuses}
+            companies={companies || []}
+            currentStatus={status}
+            currentCompanyId={companyId}
+            currentQuery={query}
+            currentIsAlumni={isAlumni}
+            currentSortBy={sortBy}
+            currentSortOrder={sortOrder}
+          />
+          
+          {/* Contacts List */}
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            <ContactsList 
+              contacts={processedContacts} 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+            />
           </div>
         </div>
       )}
     </DashboardLayout>
   );
-}
-
-// Helper functions
-function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  }).format(date);
-}
-
-function getInteractionTypeClass(type: string) {
-  switch (type) {
-    case 'Email':
-      return 'bg-blue-100 text-blue-800';
-    case 'Phone Call':
-      return 'bg-green-100 text-green-800';
-    case 'Video Meeting':
-      return 'bg-purple-100 text-purple-800';
-    case 'In-Person Meeting':
-      return 'bg-orange-100 text-orange-800';
-    case 'Coffee Chat':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'Informational Interview':
-      return 'bg-indigo-100 text-indigo-800';
-    case 'Event/Conference':
-      return 'bg-pink-100 text-pink-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
 }

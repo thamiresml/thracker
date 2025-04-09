@@ -1,21 +1,15 @@
-// src/app/networking/new/page.tsx
+// src/app/networking/add-contact/page.tsx
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import InteractionForm from '../InteractionForm';
+import ContactFormWrapper from './ContactFormWrapper';
 
 export const dynamic = 'force-dynamic';
 
-interface PageProps {
-  searchParams: {
-    contactId?: string;
-  };
-}
-
-export default async function AddInteractionPage({ searchParams }: PageProps) {
+export default async function AddContactPage() {
   const supabase = await createClient();
   
   // Check if user is authenticated
@@ -23,9 +17,6 @@ export default async function AddInteractionPage({ searchParams }: PageProps) {
   if (!session) {
     redirect('/auth/login');
   }
-  
-  // Get preselected contact ID if provided
-  const preselectedContactId = searchParams.contactId ? parseInt(searchParams.contactId) : undefined;
   
   return (
     <DashboardLayout>
@@ -39,13 +30,10 @@ export default async function AddInteractionPage({ searchParams }: PageProps) {
         </Link>
       </div>
       
-      <PageHeader title="Add New Interaction" />
+      <PageHeader title="Add New Contact" />
       
       <div className="mt-4">
-        <InteractionForm 
-          onClose={() => redirect('/networking')}
-          preselectedContactId={preselectedContactId}
-        />
+        <ContactFormWrapper returnUrl="/networking" />
       </div>
     </DashboardLayout>
   );

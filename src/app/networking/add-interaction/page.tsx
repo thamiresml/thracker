@@ -1,4 +1,4 @@
-// src/app/networking/new/page.tsx
+// src/app/networking/add-interaction/page.tsx
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
