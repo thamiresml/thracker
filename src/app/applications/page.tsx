@@ -1,4 +1,5 @@
 // src/app/applications/page.tsx
+
 import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
@@ -57,8 +58,8 @@ export default async function ApplicationsPage({
   
   // Apply search if provided
   if (query.length > 0) {
-    // Search for applications by position only to avoid SQL errors
-    applicationsQuery = applicationsQuery.ilike('position', `%${query}%`);
+    // Search for applications by position OR company name
+    applicationsQuery = applicationsQuery.or(`position.ilike.%${query}%,companies.name.ilike.%${query}%`);
   }
   
   // Apply status filter if provided
@@ -92,10 +93,9 @@ export default async function ApplicationsPage({
     .eq('user_id', user?.id)
     .is('status', 'not.null');
   
-  // Default statuses
+  // Updated default statuses
   const defaultStatuses = [
-    'Bookmarked', 'Applying', 'Applied', 'Interviewing', 
-    'Negotiating', 'Accepted', 'I Withdrew', 'Not Selected', 'No Response 🔊'
+    'Saved', 'Applied', 'Assessment', 'Interview', 'Offer', 'Not Selected', 'No Response 👻'
   ];
   
   // Extract unique statuses

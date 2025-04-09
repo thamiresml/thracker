@@ -256,21 +256,34 @@ function formatDate(dateString: string) {
 
 function getStatusClass(status: string) {
   switch (status) {
+    case 'Saved':
+      return 'bg-orange-100 text-orange-800';
+    case 'Applied':
+      return 'bg-blue-100 text-blue-800';
+    case 'Assessment':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'Interview':
+      return 'bg-indigo-100 text-indigo-800';
+    case 'Offer':
+      return 'bg-green-100 text-green-800';
+    case 'Not Selected':
+      return 'bg-red-100 text-red-800';
+    case 'No Response 👻':
+      return 'bg-gray-100 text-gray-800';
+    // Legacy statuses
     case 'Bookmarked':
       return 'bg-orange-100 text-orange-800';
     case 'Applying':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'Applied':
       return 'bg-blue-100 text-blue-800';
     case 'Interviewing':
       return 'bg-indigo-100 text-indigo-800';
     case 'Negotiating':
-      return 'bg-purple-100 text-purple-800';
+      return 'bg-green-100 text-green-800';
     case 'Accepted':
       return 'bg-green-100 text-green-800';
     case 'I Withdrew':
-      return 'bg-gray-100 text-gray-800';
-    case 'Not Selected':
+      return 'bg-red-100 text-red-800';
+    case 'Rejected':
       return 'bg-red-100 text-red-800';
     case 'No Response 🔊':
       return 'bg-gray-100 text-gray-800';

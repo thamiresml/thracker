@@ -21,17 +21,15 @@ interface ApplicationFormData {
   notes?: string;
 }
 
+// Updated status options
 const statusOptions = [
-  'Bookmarked',
-  'Applying',
+  'Saved',
   'Applied',
-  'Interviewing',
-  'Negotiating',
-  'Accepted',
-  'I Withdrew',
+  'Assessment',
+  'Interview',
+  'Offer',
   'Not Selected',
-  'No Response 🔊',
-  'Archived'
+  'No Response 👻'
 ];
 
 interface EditApplicationFormProps {

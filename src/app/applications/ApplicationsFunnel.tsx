@@ -7,26 +7,26 @@ import { Bookmark, Send, ClipboardCheck, Users, Award, Ban, Ghost } from 'lucide
 
 // Define the application pipeline stages in order with updated statuses and Lucide icons
 const PIPELINE_STAGES = [
-  { id: 'Bookmarked', label: 'Bookmarked', color: 'text-indigo-600', icon: Bookmark },
+  { id: 'Saved', label: 'Saved', color: 'text-indigo-600', icon: Bookmark },
   { id: 'Applied', label: 'Applied', color: 'text-indigo-600', icon: Send },
   { id: 'Assessment', label: 'Assessment', color: 'text-indigo-600', icon: ClipboardCheck },
-  { id: 'Interviewing', label: 'Interviewing', color: 'text-indigo-600', icon: Users },
+  { id: 'Interview', label: 'Interview', color: 'text-indigo-600', icon: Users },
   { id: 'Offer', label: 'Offer', color: 'text-green-600', icon: Award },
-  { id: 'Rejected', label: 'Rejected', color: 'text-red-600', icon: Ban },
-  { id: 'No Response', label: 'No Response', color: 'text-gray-600', icon: Ghost }
+  { id: 'Not Selected', label: 'Not Selected', color: 'text-red-600', icon: Ban },
+  { id: 'No Response 👻', label: 'No Response', color: 'text-gray-600', icon: Ghost }
 ];
 
 // Map old statuses to new ones
 const STATUS_MAPPING: Record<string, string> = {
+  'Bookmarked': 'Saved',
   'Applying': 'Applied',
+  'Interviewing': 'Interview',
   'Negotiating': 'Offer',
   'Accepted': 'Offer',
-  'I Withdrew': 'Rejected',
-  'Not Selected': 'Rejected',
-  'Archived': 'No Response',
-  'No Response 🔊': 'No Response',
-  'No Response 👻': 'No Response'
-  // Add more mappings as needed
+  'I Withdrew': 'Not Selected',
+  'Rejected': 'Not Selected',
+  'Archived': 'No Response 👻',
+  'No Response 🔊': 'No Response 👻'
 };
 
 interface ApplicationsFunnelProps {
@@ -53,14 +53,14 @@ export default function ApplicationsFunnel({ applications = [] }: ApplicationsFu
       applications.forEach(app => {
         if (!app) return; // Skip null applications
         
-        const status = app.status || 'No Response';
+        const status = app.status || 'No Response 👻';
         const mappedStatus = STATUS_MAPPING[status] || status;
         
         if (stats[mappedStatus] !== undefined) {
           stats[mappedStatus]++;
         } else {
           // Handle any status not in our mapping
-          stats['No Response']++;
+          stats['No Response 👻']++;
         }
       });
     }
@@ -122,7 +122,7 @@ export default function ApplicationsFunnel({ applications = [] }: ApplicationsFu
           <span className="text-sm font-medium text-gray-700">Total: {totalCount} applications</span>
         </div>
         <div className="text-sm text-gray-700 text-center">
-          <span className="font-semibold">{stageStats['Interviewing'] || 0}</span> interviewing, 
+          <span className="font-semibold">{stageStats['Interview'] || 0}</span> interviewing, 
           <span className="font-semibold ml-1">{stageStats['Offer'] || 0}</span> with offers
         </div>
         <div className="text-right">
