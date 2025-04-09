@@ -1,4 +1,5 @@
 // src/components/ui/DeleteConfirmationModal.tsx
+
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -10,6 +11,7 @@ interface DeleteConfirmationModalProps {
   confirmButtonText?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  isLoading?: boolean;
 }
 
 export default function DeleteConfirmationModal({
@@ -17,10 +19,12 @@ export default function DeleteConfirmationModal({
   message,
   confirmButtonText = 'Delete',
   onConfirm,
-  onCancel
+  onCancel,
+  isLoading = false
 }: DeleteConfirmationModalProps) {
   // Reference to modal container for handling clicks outside
   const modalRef = useRef<HTMLDivElement>(null);
+  const initialFocusRef = useRef<HTMLButtonElement>(null);
   
   // Handle ESC key to close modal
   useEffect(() => {
@@ -32,6 +36,11 @@ export default function DeleteConfirmationModal({
     
     // Add event listener for ESC key
     window.addEventListener('keydown', handleEsc);
+    
+    // Set focus to cancel button when modal opens
+    if (initialFocusRef.current) {
+      initialFocusRef.current.focus();
+    }
     
     // Clean up on unmount
     return () => {
@@ -48,12 +57,12 @@ export default function DeleteConfirmationModal({
   
   return (
     <div 
-      className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 backdrop-blur-sm"
       onClick={handleClickOutside}
     >
       <div 
         ref={modalRef}
-        className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative"
+        className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative animate-fade-in-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-start mb-4">
@@ -70,7 +79,7 @@ export default function DeleteConfirmationModal({
           <button
             type="button"
             onClick={onCancel}
-            className="text-gray-400 hover:text-gray-500"
+            className="text-gray-400 hover:text-gray-500 focus:outline-none"
           >
             <X className="h-5 w-5" />
           </button>
@@ -82,18 +91,21 @@ export default function DeleteConfirmationModal({
         
         <div className="flex justify-end space-x-3">
           <button
+            ref={initialFocusRef}
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled={isLoading}
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            disabled={isLoading}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {confirmButtonText}
+            {isLoading ? 'Deleting...' : confirmButtonText}
           </button>
         </div>
       </div>

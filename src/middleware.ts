@@ -1,4 +1,4 @@
-// middleware.ts
+// src/middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
@@ -10,7 +10,6 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  // The request.cookies interface doesn't return a Promise, so we don't need to await it
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -60,7 +59,6 @@ export async function middleware(request: NextRequest) {
   )
 
   // Refresh session if expired - required for Server Components
-  // https://supabase.com/docs/guides/auth/server-side/nextjs
   await supabase.auth.getSession()
 
   return response
