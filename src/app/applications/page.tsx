@@ -3,17 +3,30 @@ import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import EmptyState from '@/components/ui/EmptyState';
 import AddApplicationButton from '@/app/applications/AddApplicationsButton';
-import { Briefcase, Plus } from 'lucide-react';
-import Link from 'next/link';
+import ApplicationsTable from '@/app/applications/ApplicationsTable';
 import { createClient } from '@/utils/supabase/server';
-import CompanyLogo from '@/components/CompanyLogo';
 import EmptyStateWithAction from './EmptyStateWithAction';
+import ApplicationsFunnel from './ApplicationsFunnel';
+import ApplicationsFilter from './ApplicationsFilter';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ApplicationsPage() {
+interface SearchParams {
+  query?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+export default async function ApplicationsPage({ 
+  searchParams 
+}: { 
+  searchParams: SearchParams 
+}) {
+  // Properly await searchParams to comply with NextJS 15
+  const awaitedParams = await searchParams;
+  
   const supabase = await createClient();
   
   const { data: { session } } = await supabase.auth.getSession();
@@ -23,21 +36,79 @@ export default async function ApplicationsPage() {
   }
 
   // Get authenticated user data for safety
-    const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   
-  // Fetch applications with company data
-  const { data: applications, error } = await supabase
+  // Extract search parameters safely
+  const query = typeof awaitedParams.query === 'string' ? awaitedParams.query : '';
+  const status = typeof awaitedParams.status === 'string' ? awaitedParams.status : '';
+  const sortBy = typeof awaitedParams.sortBy === 'string' && awaitedParams.sortBy 
+    ? awaitedParams.sortBy : 'applied_date';
+  const sortOrder = typeof awaitedParams.sortOrder === 'string' && awaitedParams.sortOrder 
+    ? awaitedParams.sortOrder : 'desc';
+  
+  // Build the query
+  let applicationsQuery = supabase
     .from('applications')
     .select(`
       *,
       companies (id, name, logo)
     `)
-    .eq('user_id', user?.id)
-    .order('applied_date', { ascending: false });
+    .eq('user_id', user?.id);
+  
+  // Apply search if provided
+  if (query.length > 0) {
+    // Search for applications by position only to avoid SQL errors
+    applicationsQuery = applicationsQuery.ilike('position', `%${query}%`);
+  }
+  
+  // Apply status filter if provided
+  if (status && status !== 'All') {
+    applicationsQuery = applicationsQuery.eq('status', status);
+  }
+  
+  // Apply sorting - make sure sortBy is valid
+  const validSortColumns = ['applied_date', 'position', 'status'];
+  const finalSortBy = validSortColumns.includes(sortBy) ? sortBy : 'applied_date';
+  
+  applicationsQuery = applicationsQuery.order(finalSortBy, { 
+    ascending: sortOrder === 'asc' 
+  });
+  
+  // Execute the query
+  const { data: applications, error } = await applicationsQuery;
   
   if (error) {
     console.error('Error fetching applications:', error);
   }
+  
+  // Get all applications for the funnel (unfiltered)
+  const { data: allApplications } = await supabase
+    .from('applications')
+    .select(`*`)
+    .eq('user_id', user?.id);
+  const { data: statusesData } = await supabase
+    .from('applications')
+    .select('status')
+    .eq('user_id', user?.id)
+    .is('status', 'not.null');
+  
+  // Default statuses
+  const defaultStatuses = [
+    'Bookmarked', 'Applying', 'Applied', 'Interviewing', 
+    'Negotiating', 'Accepted', 'I Withdrew', 'Not Selected', 'No Response 🔊'
+  ];
+  
+  // Extract unique statuses
+  const uniqueStatuses = new Set();
+  statusesData?.forEach(item => {
+    if (item.status) uniqueStatuses.add(item.status);
+  });
+  
+  // Add default statuses if they don't exist in the data
+  defaultStatuses.forEach(status => uniqueStatuses.add(status));
+  
+  // Convert to sorted array
+  const availableStatuses = Array.from(uniqueStatuses).sort() as string[];
   
   return (
     <DashboardLayout>
@@ -48,123 +119,35 @@ export default async function ApplicationsPage() {
       
       {!applications ? (
         <LoadingSpinner />
-      ) : applications.length === 0 ? (
-        <EmptyState
-          icon={<Briefcase className="w-12 h-12" />}
-          title="No applications yet"
-          description="Keep track of all your job applications in one place"
-          action={
-            <Link href="/applications/new">
-              <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                <Plus className="mr-2 h-4 w-4" />
-                Add your first application
-              </button>
-            </Link>
-          }
-        />
+      ) : applications.length === 0 && !query && !status ? (
+        <EmptyStateWithAction />
       ) : (
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Company
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Position
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Applied Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {applications.map((application) => (
-                  <tr key={application.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <CompanyLogo 
-                          logo={application.companies?.logo} 
-                          name={application.companies?.name || '?'} 
-                          size="sm" 
-                        />
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {application.companies?.name}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{application.position}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(application.status)}`}>
-                        {application.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(application.applied_date)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link href={`/applications/${application.id}`} className="text-blue-600 hover:text-blue-900 mr-3">
-                        View
-                      </Link>
-                      <Link href={`/applications/${application.id}/edit`} className="text-blue-600 hover:text-blue-900">
-                        Edit
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="space-y-6">
+          {/* Application Funnel */}
+          <div className="bg-white shadow-sm rounded-lg p-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Application Pipeline</h3>
+            <ApplicationsFunnel applications={allApplications || []} />
+          </div>
+          
+          {/* Search and Filters */}
+          <ApplicationsFilter 
+            statuses={availableStatuses} 
+            currentStatus={status} 
+            currentQuery={query}
+            currentSortBy={sortBy}
+            currentSortOrder={sortOrder}
+          />
+          
+          {/* Applications Table */}
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            <ApplicationsTable 
+              applications={applications || []} 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+            />
           </div>
         </div>
       )}
     </DashboardLayout>
   );
-}
-
-// Helper functions
-function getStatusClass(status: string) {
-  switch (status) {
-    case 'Bookmarked':
-      return 'bg-orange-100 text-orange-800';
-    case 'Applying':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'Applied':
-      return 'bg-blue-100 text-blue-800';
-    case 'Interviewing':
-      return 'bg-indigo-100 text-indigo-800';
-    case 'Negotiating':
-      return 'bg-purple-100 text-purple-800';
-    case 'Accepted':
-      return 'bg-green-100 text-green-800';
-    case 'I Withdrew':
-      return 'bg-gray-100 text-gray-800';
-    case 'Not Selected':
-      return 'bg-red-100 text-red-800';
-    case 'No Response 🔊':
-      return 'bg-gray-100 text-gray-800';
-    case 'Archived':
-      return 'bg-gray-100 text-gray-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
-
-function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  }).format(date);
 }
