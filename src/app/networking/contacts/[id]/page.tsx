@@ -17,12 +17,21 @@ interface PageProps {
 }
 
 export default async function ContactDetailPage({ params }: PageProps) {
-  const { id } = params;
+  // Properly await params before using
+  const awaitedParams = await params;
+  const { id } = awaitedParams;
+  
   const supabase = await createClient();
   
   // Check authentication
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
+    redirect('/auth/login');
+  }
+  
+  // Get authenticated user data for security
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     redirect('/auth/login');
   }
   
@@ -34,7 +43,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
       company:companies (id, name, logo, website)
     `)
     .eq('id', id)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single();
   
   if (error || !contact) {
@@ -47,7 +56,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
     .from('interactions')
     .select('*')
     .eq('contact_id', contact.id)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .order('interaction_date', { ascending: false });
   
   return (

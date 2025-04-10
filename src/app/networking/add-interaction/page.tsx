@@ -1,13 +1,16 @@
-// src/app/networking/add-interaction/page.tsx
+'use client';
+
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import InteractionForm from '../InteractionForm';
+import FormWrapper from '@/components/forms/FormWrapper';
+import InteractionForm from '@/app/networking/InteractionForm';
+import { useState } from 'react';
 
-export const dynamic = 'force-dynamic';
+// Note: This is now a client component
 
 interface PageProps {
   searchParams: {
@@ -15,17 +18,15 @@ interface PageProps {
   };
 }
 
-export default async function AddInteractionPage({ searchParams }: PageProps) {
-  const supabase = await createClient();
+export default function AddInteractionPage({ searchParams }: PageProps) {
+  const [handleClose, setHandleClose] = useState<(() => void) | null>(null);
   
-  // Check if user is authenticated
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    redirect('/auth/login');
-  }
+  // Parse contact ID if provided
+  const preselectedContactId = searchParams.contactId 
+    ? parseInt(searchParams.contactId) 
+    : undefined;
   
-  // Get preselected contact ID if provided
-  const preselectedContactId = searchParams.contactId ? parseInt(searchParams.contactId) : undefined;
+  const returnUrl = '/networking';
   
   return (
     <DashboardLayout>
@@ -42,10 +43,17 @@ export default async function AddInteractionPage({ searchParams }: PageProps) {
       <PageHeader title="Add New Interaction" />
       
       <div className="mt-4">
-        <InteractionForm 
-          onClose={() => redirect('/networking')}
-          preselectedContactId={preselectedContactId}
-        />
+        <FormWrapper 
+          returnUrl={returnUrl}
+          onCloseCallback={(closeFunc) => setHandleClose(() => closeFunc)}
+        >
+          {handleClose && (
+            <InteractionForm 
+              onClose={handleClose}
+              preselectedContactId={preselectedContactId}
+            />
+          )}
+        </FormWrapper>
       </div>
     </DashboardLayout>
   );

@@ -5,7 +5,8 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import ContactFormWrapper from './ContactFormWrapper';
+import FormWrapper from '@/components/forms/FormWrapper';
+import ContactForm from '@/app/networking/ContactForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,8 @@ export default async function AddContactPage() {
   if (!session) {
     redirect('/auth/login');
   }
+  
+  const returnUrl = '/networking';
   
   return (
     <DashboardLayout>
@@ -32,8 +35,11 @@ export default async function AddContactPage() {
       
       <PageHeader title="Add New Contact" />
       
-      <div className="mt-4">
-        <ContactFormWrapper returnUrl="/networking" />
+      <ContactForm 
+          contactId={parseInt(id)}
+          initialData={contact}
+          onClose={() => redirect(`/networking/contacts/${id}`)}
+        />
       </div>
     </DashboardLayout>
   );

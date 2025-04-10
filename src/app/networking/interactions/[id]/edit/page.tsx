@@ -1,13 +1,16 @@
-// src/app/networking/contacts/[id]/edit/page.tsx
-import { notFound, redirect } from 'next/navigation';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { notFound, redirect, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/client';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import ContactFormWrapper from './ContactFormWrapper';
+import InteractionForm from '@/app/networking/InteractionForm';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
-export const dynamic = 'force-dynamic';
+// This needs to be a client component to use the form wrapper
 
 interface PageProps {
   params: {
@@ -15,43 +18,95 @@ interface PageProps {
   };
 }
 
-export default async function EditContactPage({ params }: PageProps) {
-  // Await params before accessing
-  const awaitedParams = await params;
-  const { id } = awaitedParams;
+export default function EditInteractionPage({ params }: PageProps) {
+  const router = useRouter();
+  const supabase = createClient();
   
-  const supabase = await createClient();
+  const [loading, setLoading] = useState(true);
+  const [interaction, setInteraction] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   
-  // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    redirect('/auth/login');
+  // Get the interaction ID from params
+  const { id } = params;
+  
+  // Fetch the interaction data
+  useEffect(() => {
+    const fetchInteraction = async () => {
+      try {
+        setLoading(true);
+        
+        // Check authentication
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          return router.push('/auth/login');
+        }
+        
+        // Fetch interaction
+        const { data, error } = await supabase
+          .from('interactions')
+          .select(`
+            *,
+            contact:contacts (id, name)
+          `)
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) throw error;
+        if (!data) throw new Error('Interaction not found');
+        
+        setInteraction(data);
+      } catch (err: any) {
+        console.error('Error fetching interaction:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchInteraction();
+  }, [id, router, supabase]);
+  
+  // Handle close
+  const handleClose = () => {
+    router.push(`/networking/contacts/${interaction?.contact_id}`);
+  };
+  
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-64">
+          <LoadingSpinner />
+        </div>
+      </DashboardLayout>
+    );
   }
   
-  // Get user with proper authentication
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/auth/login');
+  if (error || !interaction) {
+    return (
+      <DashboardLayout>
+        <div className="bg-red-50 p-4 rounded-md text-red-700">
+          {error || 'Interaction not found'}
+        </div>
+        <div className="mt-4">
+          <Link
+            href="/networking"
+            className="text-indigo-600 hover:text-indigo-800"
+          >
+            Back to Contacts
+          </Link>
+        </div>
+      </DashboardLayout>
+    );
   }
   
-  // Fetch contact to make sure it exists and belongs to the user
-  const { data: contact, error } = await supabase
-    .from('contacts')
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .single();
+  const returnUrl = `/networking/contacts/${interaction.contact_id}`;
   
-  if (error || !contact) {
-    console.error('Error fetching contact:', error);
-    notFound();
-  }
-
   return (
     <DashboardLayout>
       <div className="flex items-center space-x-2 mb-6">
         <Link 
-          href={`/networking/contacts/${id}`} 
+          href={returnUrl}
           className="text-indigo-600 hover:text-indigo-800 flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
@@ -60,15 +115,15 @@ export default async function EditContactPage({ params }: PageProps) {
       </div>
       
       <PageHeader 
-        title={`Edit Contact: ${contact.name}`} 
+        title={`Edit Interaction with ${interaction.contact?.name}`} 
       />
       
       <div className="mt-4">
-        {/* Use a client component wrapper instead of directly passing server functions */}
-        <ContactFormWrapper 
-          contactId={parseInt(id)}
-          initialData={contact}
-          returnUrl={`/networking/contacts/${id}`}
+        <InteractionForm 
+          onClose={handleClose}
+          interactionId={parseInt(id)}
+          preselectedContactId={interaction.contact_id}
+          initialData={interaction}
         />
       </div>
     </DashboardLayout>
