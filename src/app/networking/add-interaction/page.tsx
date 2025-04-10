@@ -1,16 +1,13 @@
-'use client';
-
+// src/app/networking/add-interaction/page.tsx
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import FormWrapper from '@/components/forms/FormWrapper';
-import InteractionForm from '@/app/networking/InteractionForm';
-import { useState } from 'react';
+import InteractionFormWrapper from './InteractionFormWrapper';
 
-// Note: This is now a client component
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   searchParams: {
@@ -18,16 +15,18 @@ interface PageProps {
   };
 }
 
-export default function AddInteractionPage({ searchParams }: PageProps) {
-  const [handleClose, setHandleClose] = useState<(() => void) | null>(null);
-  
-  // Parse contact ID if provided
+export default async function AddInteractionPage({ searchParams }: PageProps) {
+  const supabase = await createClient();
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    redirect('/auth/login');
+  }
+
   const preselectedContactId = searchParams.contactId 
     ? parseInt(searchParams.contactId) 
     : undefined;
-  
-  const returnUrl = '/networking';
-  
+
   return (
     <DashboardLayout>
       <div className="flex items-center space-x-2 mb-6">
@@ -39,21 +38,14 @@ export default function AddInteractionPage({ searchParams }: PageProps) {
           <span>Back to Contacts</span>
         </Link>
       </div>
-      
+
       <PageHeader title="Add New Interaction" />
-      
+
       <div className="mt-4">
-        <FormWrapper 
-          returnUrl={returnUrl}
-          onCloseCallback={(closeFunc) => setHandleClose(() => closeFunc)}
-        >
-          {handleClose && (
-            <InteractionForm 
-              onClose={handleClose}
-              preselectedContactId={preselectedContactId}
-            />
-          )}
-        </FormWrapper>
+        <InteractionFormWrapper 
+          returnUrl="/networking"
+          preselectedContactId={preselectedContactId}
+        />
       </div>
     </DashboardLayout>
   );

@@ -58,9 +58,9 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
 
   // Fetch applications and interactions for these companies
   const companyIds = companies?.map(company => company.id) || [];
-  let applications = [];
-  let interactions = [];
   
+  // Get all applications
+  let applications = [];
   if (companyIds.length > 0) {
     const { data: appsData } = await supabase
       .from('applications')
@@ -69,11 +69,30 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
       .eq('user_id', session.user.id);
     
     applications = appsData || [];
+  }
+  
+  // Get all contacts for these companies
+  let contacts = [];
+  if (companyIds.length > 0) {
+    const { data: contactsData } = await supabase
+      .from('contacts')
+      .select('*')
+      .in('company_id', companyIds)
+      .eq('user_id', session.user.id);
     
+    contacts = contactsData || [];
+  }
+  
+  // Get all contact IDs
+  const contactIds = contacts.map(contact => contact.id);
+  
+  // Get all interactions for these contacts
+  let interactions = [];
+  if (contactIds.length > 0) {
     const { data: intData } = await supabase
       .from('interactions')
       .select('*')
-      .in('company_id', companyIds)
+      .in('contact_id', contactIds)
       .eq('user_id', session.user.id);
     
     interactions = intData || [];
@@ -116,7 +135,8 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
               key={company.id}
               company={company}
               applications={applications.filter(app => app.company_id === company.id)}
-              interactions={interactions.filter(int => int.company_id === company.id)}
+              interactions={interactions}
+              contacts={contacts}
             />
           ))}
         </div>

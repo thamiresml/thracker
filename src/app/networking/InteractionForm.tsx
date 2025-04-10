@@ -28,12 +28,14 @@ interface InteractionFormProps {
   onClose: () => void;
   interactionId?: number;
   preselectedContactId?: number;
+  initialData?: any; // Add initialData prop
 }
 
 export default function InteractionForm({ 
   onClose, 
   interactionId, 
-  preselectedContactId 
+  preselectedContactId,
+  initialData // Support initialData prop
 }: InteractionFormProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -42,17 +44,26 @@ export default function InteractionForm({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Initialize form with initialData or defaults
+  const defaultValues = initialData ? {
+    contact_id: initialData.contact_id,
+    interaction_date: initialData.interaction_date,
+    interaction_type: initialData.interaction_type,
+    notes: initialData.notes || '',
+    follow_up_date: initialData.follow_up_date || null
+  } : {
+    interaction_date: new Date().toISOString().split('T')[0],
+    interaction_type: 'Email',
+    follow_up_date: null
+  };
+
   const {
     register,
     handleSubmit,
     setValue,
     formState: { errors }
   } = useForm<InteractionFormData>({
-    defaultValues: {
-      interaction_date: new Date().toISOString().split('T')[0],
-      interaction_type: 'Email',
-      follow_up_date: null // Initialize to null
-    }
+    defaultValues
   });
 
   // Fetch data on mount
@@ -106,8 +117,8 @@ export default function InteractionForm({
           setValue('contact_id', preselectedContactId);
         }
 
-        // 2) If editing, load existing interaction
-        if (interactionId) {
+        // 2) If editing and no initialData provided, load existing interaction
+        if (interactionId && !initialData) {
           const { data: interaction, error: interactionError } = await supabase
             .from('interactions')
             .select('*')
@@ -133,7 +144,7 @@ export default function InteractionForm({
     };
 
     fetchData();
-  }, [interactionId, setValue, supabase, preselectedContactId]);
+  }, [interactionId, setValue, supabase, preselectedContactId, initialData]);
 
   // Handle form submit
   const onSubmit = async (data: InteractionFormData) => {

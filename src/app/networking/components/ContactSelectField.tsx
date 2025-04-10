@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react'; // Import X from lucide-react
 
 interface Contact {
   id: number;
@@ -150,6 +149,11 @@ export default function ContactSelectField({
     }
   };
   
+  // Create a simple loading spinner component
+  const LoadingSpinner = () => (
+    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-indigo-500"></div>
+  );
+  
   if (loading) {
     return (
       <div className="relative">
@@ -160,7 +164,7 @@ export default function ContactSelectField({
           disabled={true}
         />
         <div className="absolute right-3 top-2.5">
-          <LoadingSpinner size="sm" />
+          <LoadingSpinner />
         </div>
       </div>
     );

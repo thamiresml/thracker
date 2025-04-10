@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { notFound, redirect, useRouter } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
@@ -25,12 +25,24 @@ export default function EditInteractionPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true);
   const [interaction, setInteraction] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [interactionId, setInteractionId] = useState<string | null>(null);
   
   // Get the interaction ID from params
-  const { id } = params;
+  useEffect(() => {
+    const extractParams = async () => {
+      // Await the params object to get the id
+      const resolvedParams = await params;
+      setInteractionId(resolvedParams.id);
+    };
+    
+    extractParams();
+  }, [params]);
   
   // Fetch the interaction data
   useEffect(() => {
+    // Only fetch when interactionId is available
+    if (!interactionId) return;
+    
     const fetchInteraction = async () => {
       try {
         setLoading(true);
@@ -48,7 +60,7 @@ export default function EditInteractionPage({ params }: PageProps) {
             *,
             contact:contacts (id, name)
           `)
-          .eq('id', id)
+          .eq('id', interactionId)
           .eq('user_id', user.id)
           .single();
         
@@ -65,11 +77,15 @@ export default function EditInteractionPage({ params }: PageProps) {
     };
     
     fetchInteraction();
-  }, [id, router, supabase]);
+  }, [interactionId, router, supabase]);
   
   // Handle close
   const handleClose = () => {
-    router.push(`/networking/contacts/${interaction?.contact_id}`);
+    if (interaction?.contact_id) {
+      router.push(`/networking/contacts/${interaction.contact_id}`);
+    } else {
+      router.push('/networking');
+    }
   };
   
   if (loading) {
@@ -121,7 +137,7 @@ export default function EditInteractionPage({ params }: PageProps) {
       <div className="mt-4">
         <InteractionForm 
           onClose={handleClose}
-          interactionId={parseInt(id)}
+          interactionId={interactionId ? parseInt(interactionId) : undefined}
           preselectedContactId={interaction.contact_id}
           initialData={interaction}
         />

@@ -29,9 +29,15 @@ interface ContactFormProps {
   onClose: () => void;
   contactId?: number;
   initialData?: any;
+  preselectedCompanyId?: number;
 }
 
-export default function ContactForm({ onClose, contactId, initialData }: ContactFormProps) {
+export default function ContactForm({ 
+  onClose, 
+  contactId, 
+  initialData,
+  preselectedCompanyId
+}: ContactFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -67,6 +73,11 @@ export default function ContactForm({ onClose, contactId, initialData }: Contact
         if (companiesError) throw companiesError;
         setCompanies(companiesData || []);
 
+        // If preselectedCompanyId is provided, set the form value
+        if (preselectedCompanyId) {
+          setValue('company_id', preselectedCompanyId);
+        }
+
         // 2) If editing and no initialData provided, load existing contact
         if (contactId && !initialData) {
           const { data: contact, error: contactError } = await supabase
@@ -95,7 +106,7 @@ export default function ContactForm({ onClose, contactId, initialData }: Contact
     };
 
     fetchData();
-  }, [contactId, setValue, supabase, initialData]);
+  }, [contactId, setValue, supabase, initialData, preselectedCompanyId]);
 
   // Handle form submit
   const onSubmit = async (data: ContactFormData) => {

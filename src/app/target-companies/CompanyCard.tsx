@@ -11,9 +11,10 @@ interface CompanyCardProps {
   company: any;
   applications: any[];
   interactions: any[];
+  contacts: any[]; // Added contacts prop
 }
 
-export default function CompanyCard({ company, applications, interactions }: CompanyCardProps) {
+export default function CompanyCard({ company, applications, interactions, contacts }: CompanyCardProps) {
   const [isTargetCompany, setIsTargetCompany] = useState(company.is_target);
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -23,9 +24,14 @@ export default function CompanyCard({ company, applications, interactions }: Com
     return applications.filter(app => app.company_id === company.id);
   };
   
-  // Helper to get interactions for a company
+  // Helper to get interactions for a company via contacts
   const getCompanyInteractions = () => {
-    return interactions.filter(int => int.company_id === company.id);
+    // Get all contacts for this company
+    const companyContacts = contacts.filter(contact => contact.company_id === company.id);
+    const contactIds = companyContacts.map(contact => contact.id);
+    
+    // Get interactions for these contacts
+    return interactions.filter(int => contactIds.includes(int.contact_id));
   };
   
   // Helper to get the latest interaction date or "Not contacted" text
@@ -45,44 +51,51 @@ export default function CompanyCard({ company, applications, interactions }: Com
   
   // Get contact information with last interaction date per person
   const getContactsWithLastInteraction = () => {
-    const companyInteractions = getCompanyInteractions();
-    if (companyInteractions.length === 0) {
+    // Get all contacts for this company
+    const companyContacts = contacts.filter(contact => contact.company_id === company.id);
+    
+    if (companyContacts.length === 0) {
       return [];
     }
     
-    // Group interactions by contact name
-    const contactMap = new Map();
+    const companyInteractions = getCompanyInteractions();
+    if (companyInteractions.length === 0) {
+      // Return contacts without interactions
+      return companyContacts.map(contact => ({
+        id: contact.id,
+        name: contact.name,
+        role: contact.role,
+        lastDate: null,
+        hasInteraction: false
+      }));
+    }
     
-    // Get unique contacts first (even if they have no interactions)
-    companyInteractions.forEach(int => {
-      if (!contactMap.has(int.contact_name)) {
-        contactMap.set(int.contact_name, {
-          role: int.contact_role,
-          lastDate: null,
-          hasInteraction: false
-        });
-      }
-    });
+    // Map of contact_id to their latest interaction
+    const contactInteractions = new Map();
     
-    // Then find the last interaction for each contact
-    companyInteractions.forEach(int => {
-      const contact = contactMap.get(int.contact_name);
-      if (!contact.hasInteraction || new Date(int.interaction_date) > new Date(contact.lastDate || 0)) {
-        contactMap.set(int.contact_name, {
-          role: int.contact_role,
-          lastDate: int.interaction_date,
+    // Process interactions to find the latest for each contact
+    companyInteractions.forEach(interaction => {
+      const contactId = interaction.contact_id;
+      if (!contactInteractions.has(contactId) || 
+          new Date(interaction.interaction_date) > new Date(contactInteractions.get(contactId).date)) {
+        contactInteractions.set(contactId, {
+          date: interaction.interaction_date,
           hasInteraction: true
         });
       }
     });
     
-    // Return as array
-    return Array.from(contactMap.entries()).map(([name, info]) => ({
-      name,
-      role: info.role,
-      lastDate: info.lastDate,
-      hasInteraction: info.hasInteraction
-    }));
+    // Build the final result
+    return companyContacts.map(contact => {
+      const interactionInfo = contactInteractions.get(contact.id) || { date: null, hasInteraction: false };
+      return {
+        id: contact.id,
+        name: contact.name,
+        role: contact.role,
+        lastDate: interactionInfo.date,
+        hasInteraction: interactionInfo.hasInteraction
+      };
+    });
   };
   
   const toggleTargetStatus = async () => {
@@ -214,28 +227,38 @@ export default function CompanyCard({ company, applications, interactions }: Com
                 <span>Networking</span>
               </div>
               <Link 
-                href={`/networking/new?companyId=${company.id}`}
+                href={`/networking/add-contact?companyId=${company.id}`}
                 className="text-xs text-indigo-600 hover:text-indigo-800"
               >
-                + Add
+                + Add Contact
               </Link>
             </div>
             
             <div className="mt-2">
-              {getCompanyInteractions().length > 0 ? (
+              {getContactsWithLastInteraction().length > 0 ? (
                 <div>
                   <div className="mt-2">
                     {getContactsWithLastInteraction().map((contact, idx) => (
                       <div key={idx} className="text-sm mb-1 text-gray-600">
                         <div className="flex justify-between">
                           <div>
-                            <span className="font-medium">{contact.name}</span>
+                            <Link 
+                              href={`/networking/contacts/${contact.id}`}
+                              className="font-medium hover:text-indigo-600"
+                            >
+                              {contact.name}
+                            </Link>
                             {contact.role && <span className="text-gray-500"> ({contact.role})</span>}
                           </div>
                           {contact.hasInteraction ? (
                             <span className="text-gray-500 text-xs">{formatDate(contact.lastDate)}</span>
                           ) : (
-                            <span className="text-gray-500 text-xs italic">No interaction</span>
+                            <Link 
+                              href={`/networking/contacts/${contact.id}/add-interaction`}
+                              className="text-indigo-600 hover:text-indigo-800 text-xs"
+                            >
+                              Add Interaction
+                            </Link>
                           )}
                         </div>
                       </div>
@@ -244,7 +267,7 @@ export default function CompanyCard({ company, applications, interactions }: Com
                 </div>
               ) : (
                 <div className="text-sm py-2 text-gray-500 italic">
-                  Not contacted yet
+                  No contacts yet
                 </div>
               )}
             </div>

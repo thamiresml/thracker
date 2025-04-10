@@ -19,8 +19,8 @@ interface Application {
   id: number;
   position: string;
   companies?: {
-    id?: number;
-    name?: string;
+    id?: number | null;
+    name?: string | null;
   } | null;
 }
 
@@ -81,11 +81,16 @@ export default function TaskModal({
         if (error) throw error;
         
         if (data) {
-          // Make sure we convert the data to match our Application interface
-          const formattedData: Application[] = data.map(item => ({
+          // Transform the data to match the Application interface
+          const formattedData: Application[] = data.map((item: any) => ({
             id: item.id,
             position: item.position,
             companies: item.companies
+              ? { 
+                  id: item.companies.id, 
+                  name: item.companies.name 
+                }
+              : null,
           }));
           
           setApplications(formattedData);

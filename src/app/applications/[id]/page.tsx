@@ -13,7 +13,10 @@ interface PageProps {
 export const dynamic = 'force-dynamic';
 
 export default async function ApplicationDetailPage({ params }: PageProps) {
-  const { id } = await params;
+  // Await params to comply with Next.js standards
+  const awaitedParams = await params;
+  const { id } = awaitedParams;
+  
   const supabase = await createClient();
   
   // Check authentication
@@ -33,24 +36,60 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
     .eq('user_id', session.user.id)
     .single();
   
-  if (error || !application) {
+  if (error) {
     console.error('Error fetching application:', error);
     notFound();
   }
   
-  // Get interactions related to this company
-  const { data: interactions } = await supabase
-    .from('interactions')
-    .select('*')
+  if (!application) {
+    console.error('Application not found');
+    notFound();
+  }
+  
+  // First get contacts associated with this company
+  const { data: companyContacts, error: contactsError } = await supabase
+    .from('contacts')
+    .select('id')
     .eq('company_id', application.company_id)
-    .eq('user_id', session.user.id)
-    .order('interaction_date', { ascending: false });
+    .eq('user_id', session.user.id);
+    
+  if (contactsError) {
+    console.error('Error fetching company contacts:', contactsError);
+  }
+  
+  // Initialize interactions as empty array
+  let interactions = [];
+  
+  // Then get interactions only for contacts from this company
+  if (companyContacts && companyContacts.length > 0) {
+    const contactIds = companyContacts.map(contact => contact.id);
+    
+    const { data: interactionData, error: interactionError } = await supabase
+      .from('interactions')
+      .select(`
+        *,
+        contact:contacts (
+          id,
+          name,
+          role
+        )
+      `)
+      .in('contact_id', contactIds)
+      .eq('user_id', session.user.id)
+      .order('interaction_date', { ascending: false });
+      
+    if (interactionError) {
+      console.error('Error fetching interactions:', interactionError);
+    } else {
+      interactions = interactionData || [];
+    }
+  }
   
   return (
     <DashboardLayout>
       <ApplicationDetail 
         application={application} 
-        interactions={interactions || []} 
+        interactions={interactions} 
       />
     </DashboardLayout>
   );

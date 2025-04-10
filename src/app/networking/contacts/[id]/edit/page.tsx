@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import ContactForm from '../../../ContactForm';
+import ContactFormWrapper from './ContactFormWrapper';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,23 +16,21 @@ interface PageProps {
 }
 
 export default async function EditContactPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
   const supabase = await createClient();
-  
-  // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
     redirect('/auth/login');
   }
-  
-  // Fetch contact to make sure it exists and belongs to the user
+
   const { data: contact, error } = await supabase
     .from('contacts')
     .select('*')
     .eq('id', id)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single();
-  
+
   if (error || !contact) {
     console.error('Error fetching contact:', error);
     notFound();
@@ -49,16 +47,14 @@ export default async function EditContactPage({ params }: PageProps) {
           <span>Back to Contact</span>
         </Link>
       </div>
-      
-      <PageHeader 
-        title={`Edit Contact: ${contact.name}`} 
-      />
-      
+
+      <PageHeader title={`Edit Contact: ${contact.name}`} />
+
       <div className="mt-4">
-        <ContactForm 
+        <ContactFormWrapper 
           contactId={parseInt(id)}
           initialData={contact}
-          onClose={() => redirect(`/networking/contacts/${id}`)}
+          returnUrl={`/networking/contacts/${id}`}
         />
       </div>
     </DashboardLayout>
