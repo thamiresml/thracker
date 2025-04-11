@@ -69,33 +69,90 @@ export default async function Dashboard() {
   // Get contact IDs to fetch interactions
   const contactIds = contacts?.map(contact => contact.id) || [];
   
-  // Fetch interactions that are related to contacts, ordered by most recent
-  let interactions = [];
+  // Define the interaction type
+  interface Interaction {
+    id: number;
+    interaction_date: string | null;
+    interaction_type: string;
+    contact_id: number;
+    user_id: string;
+    contact?: {
+      id: number;
+      name: string;
+      role?: string;
+      company_id?: number;
+      company?: {
+        id: number;
+        name: string;
+        logo?: string;
+      } | null;
+    } | null;
+  }
+
+  // Fetch recent interactions with complete contact and company information
+  let recentInteractions: Interaction[] = [];
   if (contactIds.length > 0) {
+    // First fetch the most recent interactions with valid dates
     const { data: interactionData } = await supabase
       .from('interactions')
       .select(`
-        *,
-        contact:contacts (
-          id,
-          name,
-          role,
-          company_id,
-          company:companies (id, name, logo)
-        )
+        id,
+        interaction_date,
+        interaction_type,
+        contact_id,
+        user_id
       `)
-      .in('contact_id', contactIds)
       .eq('user_id', user.id)
-      .order('interaction_date', { ascending: false })  // Most recent first
+      .not('interaction_date', 'is', null)  // Only get interactions with dates
+      .order('interaction_date', { ascending: false })
       .limit(5);
     
-    interactions = interactionData || [];
+    if (interactionData && interactionData.length > 0) {
+      // Fetch contact details for each interaction
+      const contactPromises = interactionData.map(async (interaction) => {
+        const { data: contact } = await supabase
+          .from('contacts')
+          .select(`
+            id, 
+            name, 
+            role,
+            company_id
+          `)
+          .eq('id', interaction.contact_id)
+          .single();
+          
+        // If contact exists, fetch company details
+        if (contact && contact.company_id) {
+          const { data: company } = await supabase
+            .from('companies')
+            .select('id, name, logo')
+            .eq('id', contact.company_id)
+            .single();
+            
+          return {
+            ...interaction,
+            contact: {
+              ...contact,
+              company: company || null
+            }
+          };
+        }
+        
+        return {
+          ...interaction,
+          contact: contact || { name: 'Unknown Contact', id: 0 },
+        };
+      });
+      
+      // Wait for all contact and company data to be fetched
+      recentInteractions = await Promise.all(contactPromises);
+    }
   }
 
   // Calculate stats
   const targetCompaniesCount = companies?.length || 0;
-  const applicationsCount = allApplications?.length || 0;  // Use the full count
-  const interactionsCount = interactions?.length || 0;
+  const applicationsCount = allApplications?.length || 0;
+  const interactionsCount = recentInteractions?.length || 0;
   const savedJobsCount = savedApplications?.length || 0;
 
   return (
@@ -103,65 +160,65 @@ export default async function Dashboard() {
       <PageHeader title="Dashboard" />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6 flex items-start">
-          <div className="rounded-full bg-blue-100 p-3 mr-4">
-            <Briefcase className="h-6 w-6 text-blue-600" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 flex items-start">
+          <div className="rounded-full bg-blue-100 p-2 mr-3">
+            <Briefcase className="h-5 w-5 text-blue-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Applications</p>
-            <h3 className="text-3xl font-bold mt-1">{applicationsCount}</h3>
+            <p className="text-xs font-medium text-gray-500">Applications</p>
+            <h3 className="text-2xl font-bold mt-0.5">{applicationsCount}</h3>
             <Link
               href="/applications"
-              className="text-sm text-blue-600 hover:text-blue-800 mt-1 inline-block"
+              className="text-xs text-blue-600 hover:text-blue-800 mt-0.5 inline-block"
             >
               View all applications
             </Link>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 flex items-start">
-          <div className="rounded-full bg-green-100 p-3 mr-4">
-            <Save className="h-6 w-6 text-green-600" />
+        <div className="bg-white rounded-lg shadow p-4 flex items-start">
+          <div className="rounded-full bg-green-100 p-2 mr-3">
+            <Save className="h-5 w-5 text-green-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Saved Jobs</p>
-            <h3 className="text-3xl font-bold mt-1">{savedJobsCount}</h3>
+            <p className="text-xs font-medium text-gray-500">Saved Jobs</p>
+            <h3 className="text-2xl font-bold mt-0.5">{savedJobsCount}</h3>
             <Link
               href="/applications?status=Saved"
-              className="text-sm text-blue-600 hover:text-blue-800 mt-1 inline-block"
+              className="text-xs text-blue-600 hover:text-blue-800 mt-0.5 inline-block"
             >
               View saved jobs
             </Link>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 flex items-start">
-          <div className="rounded-full bg-amber-100 p-3 mr-4">
-            <Star className="h-6 w-6 text-amber-600" />
+        <div className="bg-white rounded-lg shadow p-4 flex items-start">
+          <div className="rounded-full bg-amber-100 p-2 mr-3">
+            <Star className="h-5 w-5 text-amber-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Target Companies</p>
-            <h3 className="text-3xl font-bold mt-1">{targetCompaniesCount}</h3>
+            <p className="text-xs font-medium text-gray-500">Target Companies</p>
+            <h3 className="text-2xl font-bold mt-0.5">{targetCompaniesCount}</h3>
             <Link
               href="/target-companies"
-              className="text-sm text-blue-600 hover:text-blue-800 mt-1 inline-block"
+              className="text-xs text-blue-600 hover:text-blue-800 mt-0.5 inline-block"
             >
               View all targets
             </Link>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 flex items-start">
-          <div className="rounded-full bg-purple-100 p-3 mr-4">
-            <Users className="h-6 w-6 text-purple-600" />
+        <div className="bg-white rounded-lg shadow p-4 flex items-start">
+          <div className="rounded-full bg-purple-100 p-2 mr-3">
+            <Users className="h-5 w-5 text-purple-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Networking</p>
-            <h3 className="text-3xl font-bold mt-1">{contactIds.length}</h3>
+            <p className="text-xs font-medium text-gray-500">Networking</p>
+            <h3 className="text-2xl font-bold mt-0.5">{contactIds.length}</h3>
             <Link
               href="/networking"
-              className="text-sm text-blue-600 hover:text-blue-800 mt-1 inline-block"
+              className="text-xs text-blue-600 hover:text-blue-800 mt-0.5 inline-block"
             >
               View all contacts
             </Link>
@@ -170,8 +227,8 @@ export default async function Dashboard() {
       </div>
 
       {/* Saved Jobs Section */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-medium text-gray-900">Saved Jobs</h3>
           <Link 
             href="/applications?status=Saved" 
@@ -185,37 +242,38 @@ export default async function Dashboard() {
         {savedApplications && savedApplications.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {savedApplications.slice(0, 3).map((app: any) => (
-              <div key={app.id} className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
+              <Link 
+                key={app.id} 
+                href={`/applications/${app.id}`}
+                className="block bg-white rounded-lg shadow p-3 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-center">
                   <CompanyLogo
                     logo={app.companies?.logo}
                     name={app.companies?.name || '?'}
                     size="sm"
                   />
-                  <div className="ml-3">
-                    <Link href={`/applications/${app.id}`} className="font-medium text-gray-900 hover:text-blue-600">
+                  <div className="ml-3 min-w-0">
+                    <p className="font-medium text-gray-900 hover:text-blue-600 text-sm truncate">
                       {app.position}
-                    </Link>
-                    <p className="text-sm text-gray-500">{app.companies?.name}</p>
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{app.companies?.name}</p>
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Clock className="h-4 w-4 mr-1" />
+                  <div className="flex items-center text-xs text-gray-500">
+                    <Clock className="h-3 w-3 mr-1" />
                     {formatDate(app.applied_date)}
                   </div>
-                  <Link 
-                    href={`/applications/${app.id}`}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    View Details
-                  </Link>
+                  <span className="text-xs text-blue-600 hover:text-blue-800">
+                    View Details →
+                  </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow p-6 text-center">
+          <div className="bg-white rounded-lg shadow p-4 text-center">
             <p className="text-gray-500">No saved jobs yet</p>
             <Link
               href="/applications/new"
@@ -232,47 +290,57 @@ export default async function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Applications */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
             <h3 className="font-medium text-gray-900">Recent Applications</h3>
+            <Link
+              href="/applications"
+              className="text-sm text-blue-600 hover:text-blue-500 flex items-center"
+            >
+              View all
+              <span aria-hidden="true" className="ml-1">&rarr;</span>
+            </Link>
           </div>
           {applications && applications.length > 0 ? (
             <div className="divide-y divide-gray-200">
               {applications.map((app: any) => (
-                <div
+                <Link
                   key={app.id}
-                  className="px-6 py-4 flex items-center justify-between"
+                  href={`/applications/${app.id}`}
+                  className="block hover:bg-gray-50"
                 >
-                  <div className="flex items-center">
-                    <CompanyLogo 
-                      logo={app.companies?.logo} 
-                      name={app.companies?.name || '?'} 
-                      size="sm" 
-                    />
-                    <div className="ml-4">
-                      <p className="font-medium text-gray-900">{app.position}</p>
-                      <p className="text-sm text-gray-500">{app.companies?.name}</p>
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center min-w-0">
+                      <CompanyLogo 
+                        logo={app.companies?.logo} 
+                        name={app.companies?.name || '?'} 
+                        size="sm" 
+                      />
+                      <div className="ml-3 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">{app.position}</p>
+                        <p className="text-xs text-gray-500 truncate">{app.companies?.name}</p>
+                      </div>
+                    </div>
+                    <div className="text-right ml-2 flex-shrink-0">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
+                          app.status
+                        )}`}
+                      >
+                        {app.status}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatDate(app.applied_date)}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                        app.status
-                      )}`}
-                    >
-                      {app.status}
-                    </span>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formatDate(app.applied_date)}
-                    </p>
-                  </div>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
-            <div className="px-6 py-8 text-center">
+            <div className="px-4 py-6 text-center">
               <p className="text-gray-500">No applications yet</p>
               <Link
-                href="/applications"
+                href="/applications/new"
                 className="mt-2 inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500"
               >
                 Create your first application
@@ -284,45 +352,55 @@ export default async function Dashboard() {
 
         {/* Recent Networking */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
             <h3 className="font-medium text-gray-900">Recent Networking</h3>
+            <Link
+              href="/networking"
+              className="text-sm text-blue-600 hover:text-blue-500 flex items-center"
+            >
+              View all
+              <span aria-hidden="true" className="ml-1">&rarr;</span>
+            </Link>
           </div>
-          {interactions && interactions.length > 0 ? (
+          {recentInteractions && recentInteractions.length > 0 ? (
             <div className="divide-y divide-gray-200">
-              {interactions.map((interaction: any) => (
-                <div
+              {recentInteractions.map((interaction: Interaction) => (
+                <Link
                   key={interaction.id}
-                  className="px-6 py-4 flex items-center justify-between"
+                  href={`/networking/contacts/${interaction.contact_id}`}
+                  className="block hover:bg-gray-50"
                 >
-                  <div className="flex items-center">
-                    <CompanyLogo 
-                      logo={interaction.contact?.company?.logo} 
-                      name={interaction.contact?.company?.name || '?'} 
-                      size="sm" 
-                    />
-                    <div className="ml-4">
-                      <p className="font-medium text-gray-900">{interaction.contact?.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {interaction.contact?.role} at {interaction.contact?.company?.name}
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center min-w-0">
+                      <CompanyLogo 
+                        logo={interaction.contact?.company?.logo} 
+                        name={interaction.contact?.company?.name || '?'} 
+                        size="sm" 
+                      />
+                      <div className="ml-3 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">{interaction.contact?.name}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {interaction.contact?.role} {interaction.contact?.company?.name ? `at ${interaction.contact.company.name}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right ml-2 flex-shrink-0">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
+                        {interaction.interaction_type}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {interaction.interaction_date ? formatDate(interaction.interaction_date) : 'No date'}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
-                      {interaction.interaction_type}
-                    </span>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formatDate(interaction.interaction_date)}
-                    </p>
-                  </div>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
-            <div className="px-6 py-8 text-center">
+            <div className="px-4 py-6 text-center">
               <p className="text-gray-500">No networking interactions yet</p>
               <Link
-                href="/networking"
+                href="/networking/add-interaction"
                 className="mt-2 inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500"
               >
                 Add your first interaction
@@ -400,11 +478,17 @@ function getInteractionTypeClass(type: string) {
   }
 }
 
-function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  }).format(date);
+function formatDate(dateString: string | null) {
+  if (!dateString) return 'No date';
+  
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(date);
+  } catch (e) {
+    return 'Invalid date';
+  }
 }
