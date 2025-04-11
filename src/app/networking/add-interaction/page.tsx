@@ -16,6 +16,9 @@ interface PageProps {
 }
 
 export default async function AddInteractionPage({ searchParams }: PageProps) {
+  // Properly await searchParams
+  const params = await searchParams;
+  
   const supabase = await createClient();
 
   const { data: { session } } = await supabase.auth.getSession();
@@ -23,8 +26,9 @@ export default async function AddInteractionPage({ searchParams }: PageProps) {
     redirect('/auth/login');
   }
 
-  const preselectedContactId = searchParams.contactId 
-    ? parseInt(searchParams.contactId) 
+  // Use the awaited params
+  const preselectedContactId = params.contactId 
+    ? parseInt(params.contactId) 
     : undefined;
 
   return (

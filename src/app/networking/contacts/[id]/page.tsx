@@ -18,8 +18,8 @@ interface PageProps {
 
 export default async function ContactDetailPage({ params }: PageProps) {
   // Properly await params before using
-  const awaitedParams = await params;
-  const { id } = awaitedParams;
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
   
   const supabase = await createClient();
   
@@ -129,7 +129,16 @@ export default async function ContactDetailPage({ params }: PageProps) {
               </span>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Email</p>
-                <p className="text-sm text-gray-900">{contact.email || 'Not provided'}</p>
+                {contact.email ? (
+                  <a 
+                    href={`mailto:${contact.email}`}
+                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    {contact.email}
+                  </a>
+                ) : (
+                  <p className="text-sm text-gray-900">Not provided</p>
+                )}
               </div>
             </div>
             
@@ -139,7 +148,16 @@ export default async function ContactDetailPage({ params }: PageProps) {
               </span>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Phone</p>
-                <p className="text-sm text-gray-900">{contact.phone || 'Not provided'}</p>
+                {contact.phone ? (
+                  <a 
+                    href={`tel:${contact.phone}`}
+                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    {contact.phone}
+                  </a>
+                ) : (
+                  <p className="text-sm text-gray-900">Not provided</p>
+                )}
               </div>
             </div>
             

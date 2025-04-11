@@ -45,19 +45,22 @@ export default function ContactForm({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Default values for the form
+  const defaultValues = initialData ? {
+    ...initialData,
+    company_id: initialData.company_id,
+  } : {
+    status: 'To Reach Out',
+    is_alumni: false
+  };
+
   const {
     register,
     handleSubmit,
     setValue,
     formState: { errors }
   } = useForm<ContactFormData>({
-    defaultValues: initialData ? {
-      ...initialData,
-      company_id: initialData.company_id,
-    } : {
-      status: 'To Reach Out',
-      is_alumni: false
-    }
+    defaultValues
   });
 
   // Fetch data on mount
@@ -231,6 +234,7 @@ export default function ContactForm({
                   errors.company_id ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
                 } shadow-sm focus:outline-none px-3 py-2`}
                 {...register('company_id', { required: 'Company is required' })}
+                disabled={!!preselectedCompanyId}
               >
                 <option value="">Select a company</option>
                 {companies.map((company) => (

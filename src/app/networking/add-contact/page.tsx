@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import ContactForm from '@/app/networking/ContactForm';
+import ContactFormWrapper from './ContactFormWrapper';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +16,9 @@ interface PageProps {
 }
 
 export default async function AddContactPage({ searchParams }: PageProps) {
+  // Properly await searchParams
+  const params = await searchParams;
+  
   const supabase = await createClient();
   
   // Check if user is authenticated
@@ -24,9 +27,9 @@ export default async function AddContactPage({ searchParams }: PageProps) {
     redirect('/auth/login');
   }
   
-  // Get preselected company ID if provided
-  const preselectedCompanyId = searchParams.companyId ? 
-    parseInt(searchParams.companyId) : undefined;
+  // Get preselected company ID if provided - now using awaited params
+  const preselectedCompanyId = params.companyId ? 
+    parseInt(params.companyId) : undefined;
   
   return (
     <DashboardLayout>
@@ -43,8 +46,8 @@ export default async function AddContactPage({ searchParams }: PageProps) {
       <PageHeader title="Add New Contact" />
       
       <div className="mt-4">
-        <ContactForm 
-          onClose={() => redirect('/networking')}
+        <ContactFormWrapper 
+          returnUrl="/networking"
           preselectedCompanyId={preselectedCompanyId}
         />
       </div>

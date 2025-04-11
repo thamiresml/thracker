@@ -28,14 +28,14 @@ interface InteractionFormProps {
   onClose: () => void;
   interactionId?: number;
   preselectedContactId?: number;
-  initialData?: any; // Add initialData prop
+  initialData?: any; // For editing existing interaction
 }
 
 export default function InteractionForm({ 
   onClose, 
   interactionId, 
   preselectedContactId,
-  initialData // Support initialData prop
+  initialData
 }: InteractionFormProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -249,6 +249,7 @@ export default function InteractionForm({
                 errors.contact_id ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
               } shadow-sm focus:outline-none`}
               {...register('contact_id', { required: 'Contact is required' })}
+              disabled={!!preselectedContactId}
             >
               <option value="">Select a contact</option>
               {contacts.map((contact) => (

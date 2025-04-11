@@ -16,7 +16,10 @@ interface PageProps {
 }
 
 export default async function EditContactPage({ params }: PageProps) {
-  const { id } = await params;
+  // Properly await params
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
+  
   const supabase = await createClient();
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();

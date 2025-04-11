@@ -52,8 +52,7 @@ export default async function NetworkingPage({
     redirect('/auth/login');
   }
 
-  // Create a simple query to get contacts first, then manually join with other data
-  // This avoids the foreign key relationship error
+  // Fetch all contacts
   let { data: contacts, error } = await supabase
     .from('contacts')
     .select('*')
@@ -64,7 +63,7 @@ export default async function NetworkingPage({
     contacts = [];
   }
 
-  // Apply filters to the contacts after fetching
+  // Apply filters to the contacts
   let filteredContacts = contacts || [];
   
   if (query) {
@@ -89,7 +88,7 @@ export default async function NetworkingPage({
     filteredContacts = filteredContacts.filter(contact => contact.is_alumni === true);
   }
   
-  // Now get additional data for each contact
+  // Get additional data for each contact
   const contactIds = filteredContacts.map(contact => contact.id);
   
   // Get company data for the filtered contacts
@@ -164,6 +163,18 @@ export default async function NetworkingPage({
       const dateA = new Date(a.last_interaction_date);
       const dateB = new Date(b.last_interaction_date);
       const result = dateA.getTime() - dateB.getTime();
+      return sortOrder === 'asc' ? result : -result;
+    });
+  } else if (sortBy === 'companies.name') {
+    processedContacts.sort((a, b) => {
+      const nameA = a.company?.name || '';
+      const nameB = b.company?.name || '';
+      const result = nameA.localeCompare(nameB);
+      return sortOrder === 'asc' ? result : -result;
+    });
+  } else if (sortBy === 'status') {
+    processedContacts.sort((a, b) => {
+      const result = a.status.localeCompare(b.status);
       return sortOrder === 'asc' ? result : -result;
     });
   }

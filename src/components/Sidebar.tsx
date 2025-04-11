@@ -14,12 +14,12 @@ export default function Sidebar() {
   };
   
   return (
-    <div className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col">
+    <div className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col fixed">
       <div className="px-5 py-4 flex items-center">
         <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 text-transparent bg-clip-text">Thracker</h1>
       </div>
       
-      <nav className="flex-1 pt-4 flex flex-col px-3 space-y-1">
+      <nav className="flex-1 pt-4 flex flex-col px-3 space-y-1 overflow-y-auto">
         {/* Weekly Plan link added at the top */}
         <Link 
           href="/weekly-plan"

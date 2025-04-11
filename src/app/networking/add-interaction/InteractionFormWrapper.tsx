@@ -1,8 +1,8 @@
 // src/app/networking/add-interaction/InteractionFormWrapper.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import FormWrapper from '@/components/forms/FormWrapper';
+import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import InteractionForm from '@/app/networking/InteractionForm';
 
 interface InteractionFormWrapperProps {
@@ -14,19 +14,17 @@ export default function InteractionFormWrapper({
   returnUrl,
   preselectedContactId
 }: InteractionFormWrapperProps) {
-  const [handleClose, setHandleClose] = useState<(() => void) | null>(null);
+  const router = useRouter();
+  
+  // Create a client-side handler for the close action
+  const handleClose = useCallback(() => {
+    router.push(returnUrl);
+  }, [router, returnUrl]);
 
   return (
-    <FormWrapper
-      returnUrl={returnUrl}
-      onCloseCallback={(closeFunc) => setHandleClose(() => closeFunc)}
-    >
-      {handleClose && (
-        <InteractionForm 
-          onClose={handleClose}
-          preselectedContactId={preselectedContactId}
-        />
-      )}
-    </FormWrapper>
+    <InteractionForm 
+      onClose={handleClose}
+      preselectedContactId={preselectedContactId}
+    />
   );
 }

@@ -1,3 +1,4 @@
+// src/app/networking/contacts/[id]/add-interaction/page.tsx
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -13,7 +14,9 @@ interface PageProps {
 }
 
 export default async function AddInteractionPage({ params }: PageProps) {
-  const { id } = await params;
+  // Properly await params
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
 
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();

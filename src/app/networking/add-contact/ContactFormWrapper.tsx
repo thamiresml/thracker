@@ -1,28 +1,30 @@
+// src/app/networking/add-contact/ContactFormWrapper.tsx
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import ContactForm from '@/app/networking/ContactForm';
-import FormWrapper from '@/components/forms/FormWrapper';
 
 interface ContactFormWrapperProps {
   returnUrl: string;
+  preselectedCompanyId?: number;
 }
 
-export default function ContactFormWrapper({ returnUrl }: ContactFormWrapperProps) {
-  const [handleClose, setHandleClose] = useState<(() => void) | null>(null);
-
-  const handleCallback = useCallback((closeFunc: () => void) => {
-    setHandleClose(() => closeFunc);
-  }, []);
+export default function ContactFormWrapper({ 
+  returnUrl,
+  preselectedCompanyId
+}: ContactFormWrapperProps) {
+  const router = useRouter();
+  
+  // Create a client-side handler for the close action
+  const handleClose = useCallback(() => {
+    router.push(returnUrl);
+  }, [router, returnUrl]);
 
   return (
-    <FormWrapper
-      returnUrl={returnUrl}
-      onCloseCallback={handleCallback}
-    >
-      {handleClose && (
-        <ContactForm onClose={handleClose} />
-      )}
-    </FormWrapper>
+    <ContactForm 
+      onClose={handleClose}
+      preselectedCompanyId={preselectedCompanyId}
+    />
   );
 }

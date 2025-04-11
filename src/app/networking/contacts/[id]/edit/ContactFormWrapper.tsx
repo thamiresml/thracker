@@ -1,9 +1,9 @@
 // src/app/networking/contacts/[id]/edit/ContactFormWrapper.tsx
 'use client';
 
-import { useState, useCallback } from 'react';
-import FormWrapper from '@/components/forms/FormWrapper';
-import ContactForm from '../../../ContactForm';
+import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import ContactForm from '@/app/networking/ContactForm';
 
 interface ContactFormWrapperProps {
   contactId: number;
@@ -16,24 +16,18 @@ export default function ContactFormWrapper({
   initialData,
   returnUrl,
 }: ContactFormWrapperProps) {
-  const [handleClose, setHandleClose] = useState<(() => void) | null>(null);
-
-  const handleCallback = useCallback((closeFunc: () => void) => {
-    setHandleClose(() => closeFunc);
-  }, []);
+  const router = useRouter();
+  
+  // Create a client-side handler for the close action
+  const handleClose = useCallback(() => {
+    router.push(returnUrl);
+  }, [router, returnUrl]);
 
   return (
-    <FormWrapper
-      returnUrl={returnUrl}
-      onCloseCallback={handleCallback}
-    >
-      {handleClose && (
-        <ContactForm
-          contactId={contactId}
-          initialData={initialData}
-          onClose={handleClose}
-        />
-      )}
-    </FormWrapper>
+    <ContactForm
+      contactId={contactId}
+      initialData={initialData}
+      onClose={handleClose}
+    />
   );
 }
