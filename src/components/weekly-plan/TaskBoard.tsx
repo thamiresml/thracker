@@ -1,4 +1,5 @@
-// src/components/weekly-plan/TaskBoard.tsx
+// src/components/weekly-plan/TaskBoard.tsx - Updates for gamification
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -6,11 +7,12 @@ import { format, addWeeks, addDays } from 'date-fns';
 import { 
   CheckCircle, Clock, CheckSquare, Plus, 
   Calendar, ArrowRight, CheckCheck,
-  ChevronDown
+  ChevronDown, Award, Star
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import TaskModal from './TaskModal';
 import { TaskItem } from './TaskItem';
+import TaskAchievement from '@/components/weekly-plan/TaskAchievement';
 
 // Task status constants
 export const TASK_STATUS = {
@@ -74,6 +76,11 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const dragSourceColumn = useRef<string | null>(null);
   
+  // Achievement states - new for gamification
+  const [showAchievement, setShowAchievement] = useState(false);
+  const [taskCompleteCount, setTaskCompleteCount] = useState(0);
+  const [taskCompleteMilestone, setTaskCompleteMilestone] = useState(false);
+  
   // Filter tasks by status
   const todoTasks = tasks.filter(task => task.status === TASK_STATUS.TODO);
   const inProgressTasks = tasks.filter(task => task.status === TASK_STATUS.IN_PROGRESS);
@@ -112,6 +119,16 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
       if (error) throw error;
       
       setTasks(data || []);
+      
+      // New for gamification: Count completed tasks
+      const completedTasks = data?.filter(task => task.status === 'done').length || 0;
+      setTaskCompleteCount(completedTasks);
+      
+      // Check for milestones (e.g., 5 completed tasks in a week)
+      if (completedTasks >= 5 && !taskCompleteMilestone) {
+        setTaskCompleteMilestone(true);
+      }
+      
     } catch (err: any) {
       console.error('Error fetching tasks:', err);
       setError(err.message || 'Failed to load tasks');
@@ -307,6 +324,10 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
         return;
       }
       
+      // Check if moving to done column (for achievement tracking)
+      const movingToDone = dragOverColumn === TASK_STATUS.DONE && 
+                         draggedTask.status !== TASK_STATUS.DONE;
+      
       // Log the task movement for debugging
       console.log(`Moving task ${draggedTask.id} from ${draggedTask.status} to ${dragOverColumn}`);
       
@@ -330,6 +351,30 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
         throw error;
       }
       
+      // If moved to done, update task complete count and check achievements
+      if (movingToDone) {
+        setTaskCompleteCount(prev => prev + 1);
+        
+        // Check for milestone achievements
+        if (taskCompleteCount + 1 === 5) {
+          setTaskCompleteMilestone(true);
+          setShowAchievement(true);
+          
+          // Record achievement in database
+          await supabase.from('achievements').insert({
+            user_id: userId,
+            achievement_type: 'weekly_task_milestone',
+            description: 'Completed 5 tasks in a single week',
+            date_achieved: new Date().toISOString().split('T')[0],
+            metadata: { 
+              title: 'Weekly Task Master!',
+              count: 5 
+            },
+            seen: false
+          });
+        }
+      }
+      
     } catch (err) {
       console.error('Error moving task:', err);
     } finally {
@@ -346,6 +391,12 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
       document.getElementById(`column-${columnId}`)?.classList.remove('bg-purple-50', 'border-purple-200');
       setDragOverColumn(null);
     }
+  };
+
+  // Handle achievement updates from the TaskAchievement component
+  const handleNewAchievement = (type: string) => {
+    console.log('New achievement earned:', type);
+    // You could add additional UI effects or animations here
   };
 
   // Utility function to generate task UI
@@ -437,6 +488,41 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
           )}
         </div>
       </div>
+
+      {/* Progress bar for task completion */}
+      {tasks.length > 0 && (
+        <div className="mb-4 bg-white p-3 rounded-lg shadow-sm">
+          <div className="flex justify-between items-center mb-1">
+            <div className="flex items-center">
+              <CheckCircle className="h-4 w-4 mr-1.5 text-purple-500" />
+              <h3 className="text-sm font-medium text-gray-700">Task Progress</h3>
+            </div>
+            <div className="flex items-center">
+              <span className="text-sm font-medium text-gray-700">
+                {taskCompleteCount} / {tasks.length} completed
+              </span>
+              {taskCompleteMilestone && (
+                <div className="ml-2 flex">
+                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className={`h-full rounded-full ${
+                taskCompleteCount === tasks.length 
+                  ? 'bg-green-500' 
+                  : taskCompleteCount >= Math.floor(tasks.length / 2) 
+                    ? 'bg-blue-500' 
+                    : 'bg-purple-500'
+              }`}
+              style={{ width: `${tasks.length > 0 ? (taskCompleteCount / tasks.length) * 100 : 0}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
 
       {/* Simple Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -584,6 +670,12 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
           weekStartDate={startDateFormatted}
         />
       )}
+
+      {/* Achievement notifications */}
+      <TaskAchievement 
+        userId={userId}
+        onNewAchievement={handleNewAchievement}
+      />
     </>
   );
 }

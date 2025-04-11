@@ -7,6 +7,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
 import MiniCalendar from '@/components/weekly-plan/MiniCalendar';
 import TaskBoard from '@/components/weekly-plan/TaskBoard';
+import WeeklyStats from '@/components/weekly-plan/WeeklyStats';
 import WeeklyPlanHeader from '@/components/weekly-plan/WeeklyPlanHeader';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { createClient } from '@/utils/supabase/server';
@@ -79,7 +80,17 @@ export default async function WeeklyPlanPage({
           currentWeekLink={`/weekly-plan?week=${thisWeek}`}
           startDate={weekStart}
           endDate={weekEnd}
+          userId={user.id}
         />
+        
+        {/* Weekly Stats Component */}
+        <Suspense fallback={<LoadingSpinner />}>
+          <WeeklyStats
+            startDate={weekStart}
+            endDate={weekEnd}
+            userId={user.id}
+          />
+        </Suspense>
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
@@ -101,19 +112,22 @@ export default async function WeeklyPlanPage({
               />
               
               <div className="mt-6 border-t border-gray-200 pt-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Statistics</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Tasks This Week:</span>
-                    <span className="font-medium">0</span>
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Your Tips</h3>
+                <div className="space-y-3">
+                  <div className="bg-indigo-50 p-3 rounded-md">
+                    <p className="text-sm text-indigo-800">
+                      Drag and drop tasks between columns to update their status!
+                    </p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Completed:</span>
-                    <span className="font-medium">0</span>
+                  <div className="bg-amber-50 p-3 rounded-md">
+                    <p className="text-sm text-amber-800">
+                      Each completed goal earns you a star. Can you earn all three this week?
+                    </p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Pending:</span>
-                    <span className="font-medium">0</span>
+                  <div className="bg-green-50 p-3 rounded-md">
+                    <p className="text-sm text-green-800">
+                      Consistency is key! Keep your streak going by completing at least one task per day.
+                    </p>
                   </div>
                 </div>
               </div>
