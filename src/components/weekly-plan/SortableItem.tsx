@@ -15,6 +15,7 @@ interface SortableTaskItemProps {
   isSelected?: boolean;
   onToggleSelect?: () => void;
   selectionMode?: boolean;
+  isDone?: boolean;
 }
 
 export function SortableTaskItem({
@@ -25,6 +26,7 @@ export function SortableTaskItem({
   isSelected,
   onToggleSelect,
   selectionMode,
+  isDone = false,
 }: SortableTaskItemProps) {
   const {
     attributes,
@@ -63,6 +65,7 @@ export function SortableTaskItem({
         isSelected={isSelected}
         onToggleSelect={onToggleSelect}
         selectionMode={selectionMode}
+        isDone={isDone || task.status === 'done'}
       />
     </div>
   );

@@ -14,6 +14,7 @@ interface TaskItemProps {
   isSelected?: boolean;
   onToggleSelect?: () => void;
   selectionMode?: boolean;
+  isDone?: boolean;
 }
 
 export function TaskItem({ 
@@ -23,7 +24,8 @@ export function TaskItem({
   isDragging = false,
   isSelected = false,
   onToggleSelect,
-  selectionMode = false
+  selectionMode = false,
+  isDone = false
 }: TaskItemProps) {
   const [showActions, setShowActions] = useState(false);
 
@@ -67,7 +69,9 @@ export function TaskItem({
           ) : (
             <GripHorizontal className="h-4 w-4 mr-2 text-gray-400 cursor-grab" />
           )}
-          <h4 className="text-sm font-medium text-gray-900">{task.title}</h4>
+          <h4 className={`text-sm font-medium ${isDone ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+            {task.title}
+          </h4>
         </div>
         {showActions && !selectionMode && (
           <div className="flex space-x-1">
@@ -94,7 +98,7 @@ export function TaskItem({
       </div>
       
       {task.description && (
-        <p className="mt-1 text-xs text-gray-600 line-clamp-2 ml-6">
+        <p className={`mt-1 text-xs ${isDone ? 'text-gray-400 line-through' : 'text-gray-600'} line-clamp-2 ml-6`}>
           {task.description}
         </p>
       )}
@@ -103,21 +107,21 @@ export function TaskItem({
         {task.related_application ? (
           <div className="flex items-center text-xs text-gray-500">
             <Briefcase className="h-3 w-3 mr-1 flex-shrink-0" />
-            <span className="truncate max-w-32">
+            <span className={`truncate max-w-32 ${isDone ? 'text-gray-400' : ''}`}>
               {task.related_application.companies?.name || 'Unknown Company'}
             </span>
           </div>
         ) : (
           <div className="flex items-center text-xs text-gray-500">
             {getTaskTypeIcon(task)}
-            <span>Task</span>
+            <span className={isDone ? 'text-gray-400' : ''}>Task</span>
           </div>
         )}
         
         {task.due_date && (
           <div className="flex items-center text-xs text-gray-500">
             <Calendar className="h-3 w-3 mr-1 flex-shrink-0" />
-            <span>{format(new Date(task.due_date), 'MMM d')}</span>
+            <span className={isDone ? 'text-gray-400' : ''}>{format(new Date(task.due_date), 'MMM d')}</span>
           </div>
         )}
       </div>

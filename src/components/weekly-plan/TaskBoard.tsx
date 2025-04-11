@@ -1,33 +1,16 @@
 // src/components/weekly-plan/TaskBoard.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { format, addWeeks } from 'date-fns';
+import { useEffect, useState, useRef } from 'react';
+import { format, addWeeks, addDays } from 'date-fns';
 import { 
   CheckCircle, Clock, CheckSquare, Plus, 
-  Calendar, ArrowRight, CheckCheck
+  Calendar, ArrowRight, CheckCheck,
+  ChevronDown
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import TaskModal from './TaskModal';
 import { TaskItem } from './TaskItem';
-import { 
-  DndContext, 
-  DragEndEvent,
-  DragOverEvent,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  closestCorners,
-  DragOverlay,
-  pointerWithin
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { SortableTaskItem } from './SortableItem';
 
 // Task status constants
 export const TASK_STATUS = {
@@ -83,19 +66,14 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<number[]>([]);
   
-  // DnD state
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-
-  // Setup DnD sensors with improved settings
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 10, // Increase this value to require more movement before drag starts
-        delay: 300, // Increase delay to better distinguish between clicks and drags
-      },
-    })
-  );
-
+  // Target week for moving tasks
+  const [showWeekSelector, setShowWeekSelector] = useState(false);
+  
+  // Drag state
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const dragSourceColumn = useRef<string | null>(null);
+  
   // Filter tasks by status
   const todoTasks = tasks.filter(task => task.status === TASK_STATUS.TODO);
   const inProgressTasks = tasks.filter(task => task.status === TASK_STATUS.IN_PROGRESS);
@@ -103,7 +81,6 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
 
   // Load tasks on component mount and when week changes
   useEffect(() => {
-    console.log("Week changed to:", startDateFormatted);
     fetchTasks();
   }, [startDateFormatted]);
 
@@ -112,8 +89,6 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
     try {
       setIsLoading(true);
       setError(null);
-
-      console.log(`Fetching tasks for week starting: ${startDateFormatted}`);
 
       // Query tasks for the specific week
       const { data, error } = await supabase
@@ -131,12 +106,11 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
           )
         `)
         .eq('user_id', userId)
-        .eq('week_start_date', startDateFormatted) // This links tasks to specific weeks
+        .eq('week_start_date', startDateFormatted)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      console.log(`Found ${data?.length || 0} tasks for this week`);
       setTasks(data || []);
     } catch (err: any) {
       console.error('Error fetching tasks:', err);
@@ -224,18 +198,18 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
     }
   };
 
-  // Move selected tasks to next week
-  const moveSelectedTasksToNextWeek = async () => {
+  // Move selected tasks to a different week
+  const moveSelectedTasksToWeek = async (targetDate: Date) => {
     if (selectedTasks.length === 0) return;
     
     try {
-      // Calculate next week's start date
-      const nextWeekStart = format(addWeeks(startDate, 1), 'yyyy-MM-dd');
+      // Format the target week start date
+      const targetWeekStart = format(targetDate, 'yyyy-MM-dd');
       
       // Update all selected tasks
       const { error } = await supabase
         .from('tasks')
-        .update({ week_start_date: nextWeekStart })
+        .update({ week_start_date: targetWeekStart })
         .in('id', selectedTasks);
       
       if (error) throw error;
@@ -243,134 +217,159 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
       // Remove moved tasks from current view
       setTasks(tasks.filter(task => !selectedTasks.includes(task.id)));
       setSelectedTasks([]);
-      alert(`Successfully moved ${selectedTasks.length} tasks to next week.`);
+      setShowWeekSelector(false);
+      
+      alert(`Successfully moved ${selectedTasks.length} tasks to week of ${format(targetDate, 'MMM d, yyyy')}.`);
       
     } catch (err: any) {
       console.error('Error moving tasks:', err);
-      alert('Failed to move tasks to next week.');
+      alert('Failed to move tasks to selected week.');
     }
   };
 
-  // Updated DnD handlers for better drag and drop
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const taskId = Number(active.id);
-    const task = tasks.find(t => t.id === taskId) || null;
-    setActiveTask(task);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
+  // Generate week options for the dropdown
+  const getWeekOptions = () => {
+    const options = [];
     
-    if (!over) return;
-    
-    // Skip if not dragging a task
-    const activeId = active.id.toString();
-    if (!activeId) return;
-    
-    // Skip if not over a droppable container
-    const overId = over.id.toString();
-    if (!overId.includes('container-')) return;
-    
-    const activeTaskId = Number(activeId);
-    const targetStatus = overId.replace('container-', '');
-    
-    // Get the currently dragged task
-    const task = tasks.find(t => t.id === activeTaskId);
-    if (!task) return;
-    
-    // Skip if already in this status
-    if (task.status === targetStatus) return;
-    
-    // Provide visual feedback that the task would move here
-    document.getElementById(overId)?.classList.add('bg-purple-50', 'border-purple-200');
-    
-    // Remove highlight from other containers
-    Object.values(TASK_STATUS).forEach(status => {
-      const containerId = `container-${status}`;
-      if (containerId !== overId) {
-        document.getElementById(containerId)?.classList.remove('bg-purple-50', 'border-purple-200');
-      }
+    // Previous week
+    const prevWeek = addDays(startDate, -7);
+    options.push({
+      date: prevWeek,
+      label: `Previous week (${format(prevWeek, 'MMM d')})`
     });
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
     
-    if (!over) return;
-    
-    const activeTaskId = Number(active.id);
-    
-    // Find the active task
-    const task = tasks.find(t => t.id === activeTaskId);
-    if (!task) return;
-    
-    // Check if dropping in a different container
-    if (over.id.toString().includes('container-')) {
-      const newStatus = over.id.toString().replace('container-', '');
-      
-      // Only update if status is actually changing
-      if (task.status === newStatus) return;
-      
-      console.log(`Moving task ${activeTaskId} to status: ${newStatus}`);
-      
-      // Update in local state first for immediate feedback
-      setTasks(
-        tasks.map(t => 
-          t.id === activeTaskId ? { ...t, status: newStatus } : t
-        )
-      );
-      
-      // Then update in database
-      try {
-        const { error } = await supabase
-          .from('tasks')
-          .update({ status: newStatus })
-          .eq('id', activeTaskId);
-          
-        if (error) {
-          console.error('Supabase update error:', error);
-          throw error;
-        }
-        
-        console.log('Task status updated successfully in database');
-        
-      } catch (err: any) {
-        console.error('Error updating task status:', err);
-        // Revert the local state change if the database update failed
-        setTasks(prev => prev.map(t => 
-          t.id === activeTaskId ? { ...t, status: task.status } : t
-        ));
-      }
-    } else {
-      // Handle reordering within the same container
-      const overTaskId = Number(over.id);
-      if (activeTaskId === overTaskId) return;
-      
-      setTasks(prev => {
-        const activeIndex = prev.findIndex(t => t.id === activeTaskId);
-        const overIndex = prev.findIndex(t => t.id === overTaskId);
-        
-        if (activeIndex !== -1 && overIndex !== -1) {
-          return arrayMove(prev, activeIndex, overIndex);
-        }
-        
-        return prev;
+    // Next 4 weeks
+    for (let i = 1; i <= 4; i++) {
+      const weekDate = addWeeks(startDate, i);
+      options.push({
+        date: weekDate,
+        label: `${i === 1 ? 'Next' : `+${i}`} week (${format(weekDate, 'MMM d')})`
       });
     }
     
-    // Reset UI states
-    setActiveTask(null);
-    
-    // Remove all container highlights
-    Object.values(TASK_STATUS).forEach(status => {
-      const containerId = `container-${status}`;
-      document.getElementById(containerId)?.classList.remove('bg-purple-50', 'border-purple-200');
-    });
+    return options;
   };
 
-  // Disable DnD when in selection mode
-  const isDndDisabled = selectionMode;
+  // Custom drag and drop handlers
+  const handleDragStart = (task: Task) => {
+    if (selectionMode) return;
+    
+    setDraggedTask(task);
+    dragSourceColumn.current = task.status;
+    
+    // Add visual feedback
+    document.getElementById(`task-${task.id}`)?.classList.add('opacity-50', 'shadow-lg');
+  };
+
+  const handleDragOver = (e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    
+    if (columnId !== dragOverColumn) {
+      setDragOverColumn(columnId);
+      
+      // Add visual feedback
+      document.getElementById(`column-${columnId}`)?.classList.add('bg-purple-50', 'border-purple-200');
+      
+      // Remove highlight from other columns
+      Object.values(TASK_STATUS).forEach(status => {
+        if (status !== columnId) {
+          document.getElementById(`column-${status}`)?.classList.remove('bg-purple-50', 'border-purple-200');
+        }
+      });
+    }
+  };
+
+  const handleDragEnd = async () => {
+    // Clean up UI
+    if (draggedTask) {
+      document.getElementById(`task-${draggedTask.id}`)?.classList.remove('opacity-50', 'shadow-lg');
+    }
+    
+    // Remove highlight from all columns
+    Object.values(TASK_STATUS).forEach(status => {
+      document.getElementById(`column-${status}`)?.classList.remove('bg-purple-50', 'border-purple-200');
+    });
+    
+    // Skip if no column to drop on or if dragged to the same column
+    if (!dragOverColumn || !draggedTask || dragOverColumn === dragSourceColumn.current) {
+      setDraggedTask(null);
+      setDragOverColumn(null);
+      dragSourceColumn.current = null;
+      return;
+    }
+    
+    try {
+      // Skip if task is already in this column
+      if (draggedTask.status === dragOverColumn) {
+        setDraggedTask(null);
+        setDragOverColumn(null);
+        dragSourceColumn.current = null;
+        return;
+      }
+      
+      // Log the task movement for debugging
+      console.log(`Moving task ${draggedTask.id} from ${draggedTask.status} to ${dragOverColumn}`);
+      
+      // Optimistic update for smoother UI
+      setTasks(tasks.map(task => 
+        task.id === draggedTask.id ? { ...task, status: dragOverColumn } : task
+      ));
+      
+      // Update in database
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: dragOverColumn })
+        .eq('id', draggedTask.id);
+        
+      if (error) {
+        console.error("Error updating task status:", error);
+        // Revert UI on error
+        setTasks(tasks.map(task => 
+          task.id === draggedTask.id ? { ...task, status: dragSourceColumn.current || task.status } : task
+        ));
+        throw error;
+      }
+      
+    } catch (err) {
+      console.error('Error moving task:', err);
+    } finally {
+      // Reset drag state
+      setDraggedTask(null);
+      setDragOverColumn(null);
+      dragSourceColumn.current = null;
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent, columnId: string) => {
+    // Only handle drag leave for current dragOverColumn
+    if (columnId === dragOverColumn) {
+      document.getElementById(`column-${columnId}`)?.classList.remove('bg-purple-50', 'border-purple-200');
+      setDragOverColumn(null);
+    }
+  };
+
+  // Utility function to generate task UI
+  const renderTasks = (columnTasks: Task[], columnId: string) => {
+    return columnTasks.map(task => (
+      <div
+        key={task.id}
+        id={`task-${task.id}`}
+        draggable={!selectionMode}
+        onDragStart={() => handleDragStart(task)}
+        onDragEnd={handleDragEnd}
+      >
+        <TaskItem
+          task={task}
+          onEdit={() => handleEditTask(task)}
+          onDelete={() => handleDeleteTask(task.id)}
+          isSelected={selectedTasks.includes(task.id)}
+          onToggleSelect={() => toggleTaskSelection(task.id)}
+          selectionMode={selectionMode}
+          isDone={columnId === TASK_STATUS.DONE}
+        />
+      </div>
+    ));
+  };
 
   if (isLoading) {
     return (
@@ -411,18 +410,35 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
           </button>
           
           {selectionMode && selectedTasks.length > 0 && (
-            <button
-              onClick={moveSelectedTasksToNextWeek}
-              className="inline-flex items-center px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
-            >
-              <ArrowRight className="h-4 w-4 mr-1" />
-              Move to Next Week ({selectedTasks.length})
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowWeekSelector(!showWeekSelector)}
+                className="inline-flex items-center px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
+              >
+                <Calendar className="h-4 w-4 mr-1" />
+                Move to Week ({selectedTasks.length})
+                <ChevronDown className="h-4 w-4 ml-1" />
+              </button>
+              
+              {showWeekSelector && (
+                <div className="absolute right-0 mt-1 w-64 bg-white rounded-md shadow-lg z-10 py-1">
+                  {getWeekOptions().map((option, index) => (
+                    <button
+                      key={index}
+                      onClick={() => moveSelectedTasksToWeek(option.date)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Temporarily disabled DnD */}
+      {/* Simple Grid Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* To Do Column */}
         <div className="bg-white rounded-lg shadow-sm">
@@ -452,18 +468,19 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
             </div>
           </div>
           
-          <div className="p-2 min-h-60 bg-gray-50">
-            {todoTasks.map((task) => (
-              <TaskItem 
-                key={task.id}
-                task={task}
-                onEdit={() => handleEditTask(task)}
-                onDelete={() => handleDeleteTask(task.id)}
-                isSelected={selectedTasks.includes(task.id)}
-                onToggleSelect={() => toggleTaskSelection(task.id)}
-                selectionMode={selectionMode}
-              />
-            ))}
+          <div 
+            id={`column-${TASK_STATUS.TODO}`}
+            className="p-2 min-h-60 bg-gray-50 transition-colors border border-transparent"
+            onDragOver={(e) => handleDragOver(e, TASK_STATUS.TODO)}
+            onDragLeave={(e) => handleDragLeave(e, TASK_STATUS.TODO)}
+          >
+            {renderTasks(todoTasks, TASK_STATUS.TODO)}
+            
+            {todoTasks.length === 0 && (
+              <div className="text-center py-4 text-gray-400 text-sm">
+                No tasks yet
+              </div>
+            )}
           </div>
         </div>
 
@@ -495,18 +512,19 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
             </div>
           </div>
           
-          <div className="p-2 min-h-60 bg-gray-50">
-            {inProgressTasks.map((task) => (
-              <TaskItem 
-                key={task.id}
-                task={task}
-                onEdit={() => handleEditTask(task)}
-                onDelete={() => handleDeleteTask(task.id)}
-                isSelected={selectedTasks.includes(task.id)}
-                onToggleSelect={() => toggleTaskSelection(task.id)}
-                selectionMode={selectionMode}
-              />
-            ))}
+          <div 
+            id={`column-${TASK_STATUS.IN_PROGRESS}`}
+            className="p-2 min-h-60 bg-gray-50 transition-colors border border-transparent"
+            onDragOver={(e) => handleDragOver(e, TASK_STATUS.IN_PROGRESS)}
+            onDragLeave={(e) => handleDragLeave(e, TASK_STATUS.IN_PROGRESS)}
+          >
+            {renderTasks(inProgressTasks, TASK_STATUS.IN_PROGRESS)}
+            
+            {inProgressTasks.length === 0 && (
+              <div className="text-center py-4 text-gray-400 text-sm">
+                No tasks in progress
+              </div>
+            )}
           </div>
         </div>
 
@@ -538,35 +556,22 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
             </div>
           </div>
           
-          <div className="p-2 min-h-60 bg-gray-50">
-            {doneTasks.map((task) => (
-              <TaskItem 
-                key={task.id}
-                task={task}
-                onEdit={() => handleEditTask(task)}
-                onDelete={() => handleDeleteTask(task.id)}
-                isSelected={selectedTasks.includes(task.id)}
-                onToggleSelect={() => toggleTaskSelection(task.id)}
-                selectionMode={selectionMode}
-              />
-            ))}
+          <div 
+            id={`column-${TASK_STATUS.DONE}`}
+            className="p-2 min-h-60 bg-gray-50 transition-colors border border-transparent"
+            onDragOver={(e) => handleDragOver(e, TASK_STATUS.DONE)}
+            onDragLeave={(e) => handleDragLeave(e, TASK_STATUS.DONE)}
+          >
+            {renderTasks(doneTasks, TASK_STATUS.DONE)}
+            
+            {doneTasks.length === 0 && (
+              <div className="text-center py-4 text-gray-400 text-sm">
+                No completed tasks
+              </div>
+            )}
           </div>
         </div>
       </div>
-      
-      {/* Add drag overlay for visual feedback */}
-      <DragOverlay>
-        {activeTask ? (
-          <div className="opacity-80 transform scale-105 shadow-xl">
-            <TaskItem
-              task={activeTask}
-              onEdit={() => {}}
-              onDelete={() => {}}
-              isDragging={true}
-            />
-          </div>
-        ) : null}
-      </DragOverlay>
 
       {/* Task Modal */}
       {isTaskModalOpen && (
@@ -576,7 +581,7 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
           onSave={onTaskSaved}
           userId={userId}
           defaultStatus={editingTask?.status || statusForNewTask}
-          weekStartDate={startDateFormatted} // Pass the week start date
+          weekStartDate={startDateFormatted}
         />
       )}
     </>
