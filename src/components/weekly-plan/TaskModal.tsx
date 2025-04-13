@@ -1,4 +1,5 @@
 // src/components/weekly-plan/TaskModal.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,7 +13,7 @@ interface TaskModalProps {
   onSave: () => void;
   userId: string;
   defaultStatus?: string;
-  weekStartDate?: string; // Add week start date parameter
+  weekStartDate?: string;
 }
 
 interface Application {
@@ -38,7 +39,7 @@ export default function TaskModal({
   onSave, 
   userId,
   defaultStatus = TASK_STATUS.TODO,
-  weekStartDate // Use the week start date
+  weekStartDate
 }: TaskModalProps) {
   const supabase = createClient();
   
@@ -123,7 +124,7 @@ export default function TaskModal({
         due_date: dueDate || null,
         related_application_id: taskType === 'application' ? relatedApplicationId : null,
         user_id: userId,
-        week_start_date: weekStartDate || null // Include the week start date
+        week_start_date: weekStartDate || null
       };
       
       if (task) {

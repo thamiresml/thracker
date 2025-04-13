@@ -180,3 +180,27 @@ body {
 .animate-unlock {
   animation: unlockBounce 0.5s ease-out forwards;
 }
+
+/* Add this to src/app/globals.css */
+
+/* Smooth transition to prevent page shake during navigation */
+.smooth-transition {
+  scroll-behavior: smooth;
+  transition: background-color 0.3s ease;
+}
+
+/* Maintain the height of the application funnel section during refreshes */
+.funnel-container {
+  min-height: 250px; /* Adjust based on your actual funnel height */
+}
+
+/* Add a subtle transition on filter changes */
+.filter-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Add highlight effect to active filter */
+.filter-active {
+  background-color: #EEF2FF; /* Light indigo/purple */
+  border-color: #6366F1; /* Indigo/purple */
+}

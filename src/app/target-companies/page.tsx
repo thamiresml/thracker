@@ -14,27 +14,39 @@ import CompanyCard from './CompanyCard';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CompaniesPage({ searchParams }: { searchParams: { query?: string, targetOnly?: string } }) {
+export default async function CompaniesPage({ 
+  searchParams 
+}: { 
+  searchParams: { query?: string, targetOnly?: string } 
+}) {
+  // Create the Supabase client
   const supabase = await createClient();
   
+  // Check for authenticated session
   const { data: { session } } = await supabase.auth.getSession();
   
   if (!session) {
     redirect('/auth/login');
   }
 
-  // Get authenticated user data for safety
+  // Get authenticated user data using getUser (more secure)
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/auth/login');
+  }
   
-  // Get search parameters
-  const searchQuery = searchParams.query || '';
-  const targetOnly = searchParams.targetOnly === 'true';
+  // Properly await searchParams before accessing properties
+  const params = await searchParams;
+  
+  // Get search parameters from the awaited params object
+  const searchQuery = params.query || '';
+  const targetOnly = params.targetOnly === 'true';
   
   // Build query
   let companiesQuery = supabase
     .from('companies')
     .select('*')
-    .eq('user_id', user?.id);
+    .eq('user_id', user.id);
   
   // Filter by target status if requested
   if (targetOnly) {
@@ -66,7 +78,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
       .from('applications')
       .select('*')
       .in('company_id', companyIds)
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
     
     applications = appsData || [];
   }
@@ -78,7 +90,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
       .from('contacts')
       .select('*')
       .in('company_id', companyIds)
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
     
     contacts = contactsData || [];
   }
@@ -93,7 +105,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
       .from('interactions')
       .select('*')
       .in('contact_id', contactIds)
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
     
     interactions = intData || [];
   }

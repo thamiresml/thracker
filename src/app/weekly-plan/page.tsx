@@ -80,7 +80,6 @@ export default async function WeeklyPlanPage({
           currentWeekLink={`/weekly-plan?week=${thisWeek}`}
           startDate={weekStart}
           endDate={weekEnd}
-          userId={user.id}
         />
         
         {/* Weekly Stats Component */}
@@ -112,21 +111,16 @@ export default async function WeeklyPlanPage({
               />
               
               <div className="mt-6 border-t border-gray-200 pt-4">
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Your Tips</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Tips</h3>
                 <div className="space-y-3">
                   <div className="bg-indigo-50 p-3 rounded-md">
                     <p className="text-sm text-indigo-800">
                       Drag and drop tasks between columns to update their status!
                     </p>
                   </div>
-                  <div className="bg-amber-50 p-3 rounded-md">
-                    <p className="text-sm text-amber-800">
-                      Each completed goal earns you a star. Can you earn all three this week?
-                    </p>
-                  </div>
                   <div className="bg-green-50 p-3 rounded-md">
                     <p className="text-sm text-green-800">
-                      Consistency is key! Keep your streak going by completing at least one task per day.
+                      Creating a weekly plan helps you stay organized and focused on your job search goals.
                     </p>
                   </div>
                 </div>
