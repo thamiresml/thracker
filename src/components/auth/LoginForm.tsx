@@ -43,14 +43,14 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-sm max-w-md w-full">
-      <h2 className="text-2xl font-bold text-center mb-2">Log in to JobTrackr</h2>
+    <div className="bg-white p-8 rounded-lg shadow-lg shadow-purple-100 max-w-md w-full border border-purple-100">
+      <h2 className="text-2xl font-bold text-center mb-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-transparent bg-clip-text">Log in to Thracker</h2>
       <p className="text-gray-500 text-center mb-6">
         Track your job applications and networking connections
       </p>
 
       {error && (
-        <div className="bg-red-50 p-4 rounded-md mb-6 text-red-700 text-sm">
+        <div className="bg-red-50 p-4 rounded-md mb-6 text-red-700 text-sm border border-red-200">
           {error}
         </div>
       )}
@@ -65,7 +65,7 @@ export default function LoginForm() {
             type="email"
             className={`w-full rounded-md border ${
               errors.email ? 'border-red-500' : 'border-gray-300'
-            } px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            } px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500`}
             placeholder="you@example.com"
             {...register('email', { required: 'Email is required' })}
           />
@@ -83,7 +83,7 @@ export default function LoginForm() {
             type="password"
             className={`w-full rounded-md border ${
               errors.password ? 'border-red-500' : 'border-gray-300'
-            } px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            } px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500`}
             {...register('password', { required: 'Password is required' })}
           />
           {errors.password && (
@@ -94,15 +94,21 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-purple-600 text-white py-2 px-4 rounded-md font-medium hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
         >
           {isLoading ? 'Logging in...' : 'Log In'}
         </button>
       </form>
 
+      <div className="mt-4 text-center">
+        <Link href="/auth/reset-password" className="text-sm text-purple-600 hover:text-purple-500">
+          Forgot your password?
+        </Link>
+      </div>
+
       <p className="mt-4 text-center text-sm text-gray-600">
         Don&apos;t have an account?{' '}
-        <Link href="/auth/register" className="text-blue-600 hover:text-blue-800 font-medium">
+        <Link href="/auth/register" className="text-purple-600 hover:text-purple-500 font-medium">
           Sign up
         </Link>
       </p>

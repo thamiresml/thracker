@@ -42,7 +42,7 @@ export default function Login() {
   return (
     <div className="flex min-h-screen flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gray-50">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center text-3xl font-extrabold text-gray-900">JobTrackr</h1>
+        <h1 className="text-center text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-indigo-600 text-transparent bg-clip-text">Thracker</h1>
         <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900">
           Sign in to your account
         </h2>
@@ -50,7 +50,7 @@ export default function Login() {
           Or{' '}
           <Link
             href="/auth/register"
-            className="font-medium text-indigo-600 hover:text-indigo-500"
+            className="font-medium text-purple-600 hover:text-purple-500"
           >
             create a new account
           </Link>
@@ -58,7 +58,7 @@ export default function Login() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-4 shadow-lg shadow-purple-100 sm:rounded-lg sm:px-10 border border-purple-100">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
               {error}
@@ -79,7 +79,7 @@ export default function Login() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -97,7 +97,7 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -106,7 +106,7 @@ export default function Login() {
               <div className="text-sm">
                 <Link
                   href="/auth/reset-password"
-                  className="font-medium text-indigo-600 hover:text-indigo-500"
+                  className="font-medium text-purple-600 hover:text-purple-500"
                 >
                   Forgot your password?
                 </Link>
@@ -117,7 +117,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+                className="flex w-full justify-center rounded-md border border-transparent bg-purple-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 transition-colors duration-200"
               >
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
