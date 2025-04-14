@@ -1,12 +1,12 @@
-// src/app/networking/ContactsList.tsx
+// src/app/networking/ContactList.tsx
 
 'use client';
 
 import Link from 'next/link';
-import { ChevronUp, ChevronDown, Mail, MessageSquare, Phone, Linkedin, Clipboard, GraduationCap } from 'lucide-react';
+import { ChevronUp, ChevronDown, Mail, MessageSquare, Phone, Linkedin, GraduationCap } from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import { useRouter } from 'next/navigation';
-import { Contact } from '@/types/networking';
+import { Contact } from '@/types/common';
 
 interface ContactsListProps {
   contacts: Contact[];

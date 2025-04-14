@@ -10,13 +10,16 @@ import { ArrowLeft } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditApplicationPage({ params }: PageProps) {
-  const { id } = params;
+  // Await params to comply with Next.js 15 standards
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
+  
   const supabase = await createClient();
   
   // Check authentication

@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import { useRouter } from 'next/navigation';
+import { Application } from '@/types/common';
 
 interface ApplicationsTableProps {
-  applications: any[];
+  applications: Application[];
   sortBy: string;
   sortOrder: string;
 }

@@ -1,10 +1,20 @@
+// src/app/applications/ApplicationsFunnel.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Bookmark, Send, ClipboardCheck, Users, Award, Ban, Ghost } from 'lucide-react';
+import { Application } from '@/types/common';
 
-const PIPELINE_STAGES = [
+interface PipelineStage {
+  id: string;
+  label: string;
+  color: string;
+  icon: React.ElementType;
+}
+
+const PIPELINE_STAGES: PipelineStage[] = [
   { id: 'Saved', label: 'Saved', color: 'text-indigo-600', icon: Bookmark },
   { id: 'Applied', label: 'Applied', color: 'text-indigo-600', icon: Send },
   { id: 'Assessment', label: 'Assessment', color: 'text-indigo-600', icon: ClipboardCheck },
@@ -27,7 +37,7 @@ const STATUS_MAPPING: Record<string, string> = {
 };
 
 interface ApplicationsFunnelProps {
-  applications: any[];
+  applications: Application[];
 }
 
 export default function ApplicationsFunnel({ applications = [] }: ApplicationsFunnelProps) {

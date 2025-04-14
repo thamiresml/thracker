@@ -1,4 +1,5 @@
 // src/app/networking/contacts/[id]/add-interaction/page.tsx
+
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -9,17 +10,16 @@ import InteractionFormWrapper from './InteracionFormWrapper';
 
 export const dynamic = 'force-dynamic';
 
-interface PageProps {
-  params: { id: string }; // contact id
-}
-
-export default async function AddInteractionPage({ params }: PageProps) {
-  // Properly await params
-  const resolvedParams = await params;
-  const { id } = resolvedParams;
+export default async function AddInteractionPage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await props.params;
 
   const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
   if (error || !user) {
     redirect('/auth/login');

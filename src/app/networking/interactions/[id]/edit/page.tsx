@@ -1,4 +1,5 @@
 // src/app/networking/interactions/[id]/edit/page.tsx
+
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -9,31 +10,28 @@ import InteractionFormWrapper from './InteractionFormWrapper';
 
 export const dynamic = 'force-dynamic';
 
-interface PageProps {
-  params: {
-    id: string;
-  };
-}
+export default async function EditInteractionPage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await props.params;
 
-export default async function EditInteractionPage({ params }: PageProps) {
-  // Properly await params
-  const resolvedParams = await params;
-  const { id } = resolvedParams;
-  
   const supabase = await createClient();
-  
+
   // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session) {
     redirect('/auth/login');
   }
-  
-  // Get authenticated user data for security
-  const { data: { user } } = await supabase.auth.getUser();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     redirect('/auth/login');
   }
-  
+
   // Fetch interaction with contact data
   const { data: interaction, error } = await supabase
     .from('interactions')
@@ -44,21 +42,21 @@ export default async function EditInteractionPage({ params }: PageProps) {
     .eq('id', id)
     .eq('user_id', user.id)
     .single();
-  
+
   if (error || !interaction) {
     console.error('Error fetching interaction:', error);
     notFound();
   }
-  
-  // Get return URL based on where this edit was initiated from
-  const returnUrl = interaction.contact_id 
-    ? `/networking/contacts/${interaction.contact_id}` 
+
+  // Get return URL based on whether this interaction is tied to a contact
+  const returnUrl = interaction.contact_id
+    ? `/networking/contacts/${interaction.contact_id}`
     : '/networking';
-  
+
   return (
     <DashboardLayout>
       <div className="flex items-center space-x-2 mb-6">
-        <Link 
+        <Link
           href={returnUrl}
           className="text-indigo-600 hover:text-indigo-800 flex items-center"
         >
@@ -66,13 +64,11 @@ export default async function EditInteractionPage({ params }: PageProps) {
           <span>Back to {interaction.contact ? 'Contact' : 'Contacts'}</span>
         </Link>
       </div>
-      
-      <PageHeader 
-        title={`Edit Interaction with ${interaction.contact?.name || 'Contact'}`} 
-      />
-      
+
+      <PageHeader title={`Edit Interaction with ${interaction.contact?.name || 'Contact'}`} />
+
       <div className="mt-4">
-        <InteractionFormWrapper 
+        <InteractionFormWrapper
           interactionId={parseInt(id)}
           initialData={interaction}
           returnUrl={returnUrl}

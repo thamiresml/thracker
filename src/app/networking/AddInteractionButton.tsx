@@ -2,7 +2,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Plus, MessageSquare } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 interface AddInteractionButtonProps {
   contactId?: number;

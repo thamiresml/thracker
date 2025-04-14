@@ -10,6 +10,22 @@ import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+// Type definitions
+interface Application {
+  id: number;
+  position: string;
+  applied_date: string;
+  status: string;
+  job_posting_url?: string;
+  user_id: string;
+  company_id: number;
+  companies?: {
+    id: number;
+    name: string;
+    logo?: string;
+  };
+}
+
 export default async function Dashboard() {
   // Create the supabase client
   const supabase = await createClient();
@@ -109,7 +125,7 @@ export default async function Dashboard() {
     
     if (interactionData && interactionData.length > 0) {
       // Fetch contact details for each interaction
-      const contactPromises = interactionData.map(async (interaction) => {
+      const contactPromises = interactionData.map(async (interaction: Interaction) => {
         const { data: contact } = await supabase
           .from('contacts')
           .select(`
@@ -152,7 +168,7 @@ export default async function Dashboard() {
   // Calculate stats
   const targetCompaniesCount = companies?.length || 0;
   const applicationsCount = allApplications?.length || 0;
-  const interactionsCount = recentInteractions?.length || 0;
+  const contactsCount = contacts?.length || 0;
   const savedJobsCount = savedApplications?.length || 0;
 
   return (
@@ -215,7 +231,7 @@ export default async function Dashboard() {
           </div>
           <div>
             <p className="text-xs font-medium text-gray-500">Networking</p>
-            <h3 className="text-2xl font-bold mt-0.5">{contactIds.length}</h3>
+            <h3 className="text-2xl font-bold mt-0.5">{contactsCount}</h3>
             <Link
               href="/networking"
               className="text-xs text-blue-600 hover:text-blue-800 mt-0.5 inline-block"
@@ -241,7 +257,7 @@ export default async function Dashboard() {
         
         {savedApplications && savedApplications.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {savedApplications.slice(0, 3).map((app: any) => (
+            {savedApplications.slice(0, 3).map((app: Application) => (
               <Link 
                 key={app.id} 
                 href={`/applications/${app.id}`}
@@ -302,7 +318,7 @@ export default async function Dashboard() {
           </div>
           {applications && applications.length > 0 ? (
             <div className="divide-y divide-gray-200">
-              {applications.map((app: any) => (
+              {applications.map((app: Application) => (
                 <Link
                   key={app.id}
                   href={`/applications/${app.id}`}
@@ -479,16 +495,17 @@ function getInteractionTypeClass(type: string) {
 }
 
 function formatDate(dateString: string | null) {
-  if (!dateString) return 'No date';
-  
+  if (!dateString) return 'N/A';
   try {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }).format(date);
-  } catch (e) {
-    return 'Invalid date';
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (_) {
+    // Return original string if date parsing fails
+    return dateString;
   }
 }

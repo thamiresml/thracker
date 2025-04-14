@@ -7,7 +7,17 @@ import ContactForm from '@/app/networking/ContactForm';
 
 interface ContactFormWrapperProps {
   contactId: number;
-  initialData: any;
+  initialData: {
+    id: number;
+    name: string;
+    role?: string;
+    email?: string;
+    phone?: string;
+    company_id?: number;
+    notes?: string;
+    status?: string;
+    linkedin_url?: string;
+  };
   returnUrl: string;
 }
 

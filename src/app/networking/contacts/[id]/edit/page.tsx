@@ -1,4 +1,5 @@
 // src/app/networking/contacts/[id]/edit/page.tsx
+
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -9,20 +10,18 @@ import ContactFormWrapper from './ContactFormWrapper';
 
 export const dynamic = 'force-dynamic';
 
-interface PageProps {
-  params: {
-    id: string;
-  };
-}
+export default async function EditContactPage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await props.params;
 
-export default async function EditContactPage({ params }: PageProps) {
-  // Properly await params
-  const resolvedParams = await params;
-  const { id } = resolvedParams;
-  
   const supabase = await createClient();
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
   if (userError || !user) {
     redirect('/auth/login');
   }
@@ -42,8 +41,8 @@ export default async function EditContactPage({ params }: PageProps) {
   return (
     <DashboardLayout>
       <div className="flex items-center space-x-2 mb-6">
-        <Link 
-          href={`/networking/contacts/${id}`} 
+        <Link
+          href={`/networking/contacts/${id}`}
           className="text-indigo-600 hover:text-indigo-800 flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
@@ -54,7 +53,7 @@ export default async function EditContactPage({ params }: PageProps) {
       <PageHeader title={`Edit Contact: ${contact.name}`} />
 
       <div className="mt-4">
-        <ContactFormWrapper 
+        <ContactFormWrapper
           contactId={parseInt(id)}
           initialData={contact}
           returnUrl={`/networking/contacts/${id}`}

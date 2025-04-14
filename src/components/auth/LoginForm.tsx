@@ -12,6 +12,10 @@ interface LoginFormData {
   password: string;
 }
 
+interface AuthError {
+  message: string;
+}
+
 export default function LoginForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -34,8 +38,9 @@ export default function LoginForm() {
 
       router.push('/');
       router.refresh();
-    } catch (error: any) {
-      setError(error.message || 'An error occurred during login');
+    } catch (error: unknown) {
+      const authError = error as AuthError;
+      setError(authError.message || 'An error occurred during login');
       console.error('Login error:', error);
     } finally {
       setIsLoading(false);

@@ -3,8 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { X, Building, Globe, DollarSign, LinkIcon, Users, Star, AlertCircle } from 'lucide-react';
+import { X, Building, Globe, LinkIcon, Users, Star, AlertCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import Image from 'next/image';
 
 interface TargetCompanyFormData {
   name: string;
@@ -18,6 +19,16 @@ interface TargetCompanyFormData {
   is_target: boolean;
 }
 
+interface Company {
+  name: string;
+  logo: string;
+}
+
+// Define types for error handling
+interface SupabaseError {
+  message: string;
+}
+
 const priorityOptions = [
   'High',
   'Medium',
@@ -25,7 +36,7 @@ const priorityOptions = [
 ];
 
 // Popular company logos for easy access
-const popularCompanies = [
+const popularCompanies: Company[] = [
   { name: 'Google', logo: 'https://logo.clearbit.com/google.com' },
   { name: 'Microsoft', logo: 'https://logo.clearbit.com/microsoft.com' },
   { name: 'Amazon', logo: 'https://logo.clearbit.com/amazon.com' },
@@ -50,7 +61,7 @@ const popularCompanies = [
 interface CompanyFormProps {
   onClose: () => void;
   companyId?: number;
-  initialData?: any;
+  initialData?: TargetCompanyFormData;
 }
 
 export default function CompanyForm({ onClose, companyId, initialData }: CompanyFormProps) {
@@ -62,7 +73,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameExists, setNameExists] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<Company[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const {
@@ -139,8 +150,9 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
           setValue('notes', company.notes);
           setValue('is_target', company.is_target);
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const error = err as SupabaseError;
+        setError(error.message);
       }
     };
 
@@ -162,8 +174,9 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
         if (error) throw error;
         
         setNameExists(data && data.length > 0);
-      } catch (err) {
-        console.error('Error checking company name:', err);
+      } catch (err: unknown) {
+        const error = err as SupabaseError;
+        console.error('Error checking company name:', error.message);
       }
     };
     
@@ -284,8 +297,9 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
       // Refresh page & close
       router.refresh();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as SupabaseError;
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -294,14 +308,12 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
   // Preview logo if available
   const logoPreview = logoUrl ? (
     <div className="mt-2 flex items-center">
-      <img 
+      <Image 
         src={logoUrl} 
         alt="Logo preview" 
+        width={48}
+        height={48}
         className="h-12 w-12 object-contain bg-white border border-gray-200 rounded-md"
-        onError={(e) => {
-          const target = e.currentTarget as HTMLImageElement;
-          target.src = 'https://placehold.co/48x48/f7f7f7/cccccc?text=Logo';
-        }}
       />
       <span className="ml-2 text-sm text-gray-500">Logo preview</span>
     </div>
@@ -465,14 +477,12 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
                       onClick={() => setValue('logo', company.logo)}
                       className="flex flex-col items-center p-2 border border-gray-200 rounded-md hover:bg-gray-50"
                     >
-                      <img 
+                      <Image 
                         src={company.logo} 
                         alt={`${company.name} logo`} 
+                        width={32}
+                        height={32}
                         className="h-8 w-8 object-contain"
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          target.src = 'https://placehold.co/32x32/f7f7f7/cccccc?text=Logo';
-                        }}
                       />
                       <span className="text-xs text-gray-500 mt-1">Use</span>
                     </button>

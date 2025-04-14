@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, 
-         isSameMonth, isToday, isSameDay, getDay, startOfWeek, endOfWeek } from 'date-fns';
+         isSameMonth, isToday, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MiniCalendarProps {

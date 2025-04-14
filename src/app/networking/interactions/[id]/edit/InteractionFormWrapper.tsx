@@ -4,10 +4,11 @@
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import InteractionForm from '@/app/networking/InteractionForm';
+import { Interaction } from '@/types/common';
 
 interface InteractionFormWrapperProps {
   interactionId: number;
-  initialData: any;
+  initialData: Interaction;
   returnUrl: string;
 }
 

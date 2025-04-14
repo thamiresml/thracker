@@ -1,7 +1,7 @@
 // src/app/networking/add-contact/ContactFormWrapper.tsx
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import ContactForm from '@/app/networking/ContactForm';
 

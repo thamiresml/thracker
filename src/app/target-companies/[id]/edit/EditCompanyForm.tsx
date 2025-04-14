@@ -5,7 +5,19 @@
 import { useRouter } from 'next/navigation';
 import CompanyForm from '../../CompanyForm';
 
-export default function EditCompanyForm({ companyId, initialData }: { companyId: number, initialData: any }) {
+interface TargetCompanyFormData {
+  name: string;
+  website?: string;
+  industry?: string;
+  size?: string;
+  logo?: string;
+  description?: string;
+  priority: string;
+  notes?: string;
+  is_target: boolean;
+}
+
+export default function EditCompanyForm({ companyId, initialData }: { companyId: number, initialData: TargetCompanyFormData }) {
   const router = useRouter();
   
   return (

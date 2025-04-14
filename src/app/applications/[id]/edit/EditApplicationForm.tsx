@@ -85,8 +85,9 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           setValue('jobPostingUrl', application.job_posting_url || '');
           setValue('notes', application.notes || '');
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -124,8 +125,9 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
         router.refresh();
         router.push(`/applications/${applicationId}`);
       }, 1500);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

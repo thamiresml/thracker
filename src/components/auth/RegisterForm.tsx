@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
@@ -14,7 +13,6 @@ export default function RegisterForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const router = useRouter();
   const supabase = createClient();
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -52,8 +50,9 @@ export default function RegisterForm() {
       } else {
         setMessage('Check your email for the confirmation link.');
       }
-    } catch (error: any) {
-      setError(error.message || 'An error occurred during sign up');
+    } catch (error: unknown) {
+      const apiError = error as { message: string };
+      setError(apiError.message || 'An error occurred during sign up');
     } finally {
       setLoading(false);
     }

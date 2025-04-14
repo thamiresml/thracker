@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
@@ -12,7 +11,6 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const router = useRouter();
   const supabase = createClient();
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -28,8 +26,9 @@ export default function ResetPasswordPage() {
       if (error) throw error;
 
       setMessage('Check your email for the password reset link');
-    } catch (error: any) {
-      setError(error.message || 'An error occurred while sending the password reset link');
+    } catch (error: unknown) {
+      const apiError = error as { message: string };
+      setError(apiError.message || 'An error occurred while sending the password reset link');
     } finally {
       setLoading(false);
     }

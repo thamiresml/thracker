@@ -28,7 +28,13 @@ interface InteractionFormProps {
   onClose: () => void;
   interactionId?: number;
   preselectedContactId?: number;
-  initialData?: any; // For editing existing interaction
+  initialData?: {
+    contact_id: number;
+    interaction_date: string;
+    interaction_type: string;
+    notes?: string;
+    follow_up_date?: string | null;
+  }; 
 }
 
 export default function InteractionForm({ 
@@ -85,7 +91,11 @@ export default function InteractionForm({
         // Transform the data to match our Contact interface
         const formattedContacts: Contact[] = [];
         
-        contactsData?.forEach((contact: any) => {
+        contactsData?.forEach((contact: {
+          id: number;
+          name: string;
+          company: { name: string } | Array<{ name: string }> | null;
+        }) => {
           const formattedContact: Contact = {
             id: contact.id,
             name: contact.name
@@ -138,8 +148,9 @@ export default function InteractionForm({
             }
           }
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+        setError(errorMessage);
       }
     };
 
@@ -204,9 +215,10 @@ export default function InteractionForm({
       // Refresh page & close
       router.refresh();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Form submission error:", err);
-      setError(err.message);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

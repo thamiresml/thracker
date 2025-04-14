@@ -37,9 +37,10 @@ const statusOptions = [
 interface ApplicationFormProps {
   onClose: () => void;
   applicationId?: number;
+  companyId?: number;
 }
 
-export default function ApplicationForm({ onClose, applicationId }: ApplicationFormProps) {
+export default function ApplicationForm({ onClose, applicationId, companyId }: ApplicationFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -71,6 +72,11 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
         if (companiesError) throw companiesError;
         setCompanies(companiesData || []);
 
+        // Set companyId from props if provided
+        if (companyId) {
+          setValue('companyId', companyId);
+        }
+
         // 2) If editing, load existing application
         if (applicationId) {
           const { data: application, error: applicationError } = await supabase
@@ -91,13 +97,14 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
             setValue('notes', application.notes);
           }
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const apiError = err as { message: string };
+        setError(apiError.message);
       }
     };
 
     fetchData();
-  }, [applicationId, setValue, supabase]);
+  }, [applicationId, setValue, supabase, companyId]);
 
   // Handle form submit
   const onSubmit = async (data: ApplicationFormData) => {
@@ -148,8 +155,9 @@ export default function ApplicationForm({ onClose, applicationId }: ApplicationF
       // Refresh page & close
       router.refresh();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const apiError = err as { message: string };
+      setError(apiError.message);
     } finally {
       setIsLoading(false);
     }

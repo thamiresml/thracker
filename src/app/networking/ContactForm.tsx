@@ -6,12 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { X, Building, User, Mail, Phone, Linkedin, MessageSquare, GraduationCap, AlertCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
-import { CONTACT_STATUSES } from '@/types/networking';
-
-interface Company {
-  id: number;
-  name: string;
-}
+import { CONTACT_STATUSES } from '@/types/common';
+import { ApiError, Company } from '@/types/common';
 
 interface ContactFormData {
   name: string;
@@ -28,7 +24,7 @@ interface ContactFormData {
 interface ContactFormProps {
   onClose: () => void;
   contactId?: number;
-  initialData?: any;
+  initialData?: Record<string, unknown>;
   preselectedCompanyId?: number;
 }
 
@@ -60,7 +56,7 @@ export default function ContactForm({
     setValue,
     formState: { errors }
   } = useForm<ContactFormData>({
-    defaultValues
+    defaultValues: defaultValues as ContactFormData
   });
 
   // Fetch data on mount
@@ -103,8 +99,9 @@ export default function ContactForm({
             setValue('is_alumni', contact.is_alumni || false);
           }
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (error) {
+        const apiError = error as ApiError;
+        setError(apiError.message || 'An error occurred loading data');
       }
     };
 
@@ -155,8 +152,9 @@ export default function ContactForm({
       // Refresh page & close
       router.refresh();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error) {
+      const apiError = error as ApiError;
+      setError(apiError.message || 'Failed to save contact');
     } finally {
       setIsLoading(false);
     }

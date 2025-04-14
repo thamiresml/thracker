@@ -2,8 +2,6 @@
 import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
 import ContactsEmptyState from './ContactsEmptyState';
 import ContactsList from './ContactList';
@@ -25,7 +23,7 @@ interface SearchParams {
 export default async function NetworkingPage({ 
   searchParams 
 }: { 
-  searchParams: SearchParams 
+  searchParams: Promise<SearchParams> 
 }) {
   // Await the searchParams to avoid Next.js warnings
   const params = await searchParams;
@@ -53,14 +51,16 @@ export default async function NetworkingPage({
   }
 
   // Fetch all contacts
-  let { data: contacts, error } = await supabase
+  let contacts = [];
+  const { data: contactsData, error } = await supabase
     .from('contacts')
     .select('*')
     .eq('user_id', user.id);
 
   if (error) {
     console.error('Error fetching contacts:', error);
-    contacts = [];
+  } else {
+    contacts = contactsData || [];
   }
 
   // Apply filters to the contacts
@@ -102,7 +102,11 @@ export default async function NetworkingPage({
   const companiesMap = (companiesData || []).reduce((map, company) => {
     map[company.id] = company;
     return map;
-  }, {} as Record<number, any>);
+  }, {} as Record<string | number, {
+    id: number;
+    name: string;
+    logo?: string;
+  }>);
 
   // Get interactions data for the filtered contacts
   const { data: interactionsData } = await supabase
@@ -118,7 +122,10 @@ export default async function NetworkingPage({
     }
     grouped[interaction.contact_id].push(interaction);
     return grouped;
-  }, {} as Record<number, any[]>);
+  }, {} as Record<string | number, Array<{
+    contact_id: number;
+    interaction_date: string;
+  }>>);
   
   // Combine all the data into processed contacts
   const processedContacts: Contact[] = filteredContacts.map(contact => {

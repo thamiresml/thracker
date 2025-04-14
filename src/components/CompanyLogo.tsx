@@ -1,7 +1,8 @@
 // src/components/CompanyLogo.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 interface CompanyLogoProps {
   logo?: string;
@@ -11,6 +12,13 @@ interface CompanyLogoProps {
 
 export default function CompanyLogo({ logo, name, size = 'md' }: CompanyLogoProps) {
   const [hasError, setHasError] = useState(false);
+  const [imageSrc, setImageSrc] = useState(logo || '');
+  
+  // Update imageSrc when logo prop changes
+  useEffect(() => {
+    setImageSrc(logo || '');
+    setHasError(false);
+  }, [logo]);
   
   // Size classes
   const sizeClasses = {
@@ -25,15 +33,34 @@ export default function CompanyLogo({ logo, name, size = 'md' }: CompanyLogoProp
     lg: 'text-xl'
   };
   
+  // Define sizes in pixels for Next.js Image component
+  const sizePixels = {
+    sm: 40,
+    md: 48,
+    lg: 64
+  };
+  
+  // Handle errors safely
+  const handleImageError = () => {
+    setHasError(true);
+    console.log(`Failed to load logo for ${name}`);
+  };
+  
   return (
     <div className={`${sizeClasses[size]} rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0`}>
-      {logo && !hasError ? (
-        <img 
-          src={logo} 
-          alt={`${name} logo`}
-          className="h-full w-full object-cover"
-          onError={() => setHasError(true)}
-        />
+      {imageSrc && !hasError ? (
+        <div className="relative w-full h-full">
+          <Image 
+            src={imageSrc} 
+            alt={`${name} logo`}
+            width={sizePixels[size]}
+            height={sizePixels[size]}
+            className="h-full w-full object-cover"
+            onError={handleImageError}
+            unoptimized={true}
+            loading="eager"
+          />
+        </div>
       ) : (
         <span className={`text-gray-500 font-medium ${textSizeClasses[size]}`}>
           {name.charAt(0)}

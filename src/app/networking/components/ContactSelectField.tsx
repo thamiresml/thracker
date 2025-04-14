@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Search, X } from 'lucide-react'; // Import X from lucide-react
 
@@ -31,41 +31,8 @@ export default function ContactSelectField({
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedContactName, setSelectedContactName] = useState('');
   
-  // Fetch contacts on component mount
-  useEffect(() => {
-    fetchContacts();
-  }, []);
-  
-  // Update search results when search query changes
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults(contacts);
-      return;
-    }
-    
-    const query = searchQuery.toLowerCase();
-    const filtered = contacts.filter(contact => 
-      contact.name.toLowerCase().includes(query) || 
-      (contact.role && contact.role.toLowerCase().includes(query)) ||
-      (contact.company_name && contact.company_name.toLowerCase().includes(query))
-    );
-    setSearchResults(filtered);
-  }, [searchQuery, contacts]);
-  
-  // Update selected contact name when value changes
-  useEffect(() => {
-    if (value && contacts.length > 0) {
-      const contact = contacts.find(c => c.id === value);
-      if (contact) {
-        setSelectedContactName(contact.name);
-      }
-    } else {
-      setSelectedContactName('');
-    }
-  }, [value, contacts]);
-  
-  // Fetch all contacts
-  const fetchContacts = async () => {
+  // Define fetchContacts with useCallback to avoid recreation on each render
+  const fetchContacts = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -126,7 +93,40 @@ export default function ContactSelectField({
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
+  
+  // Fetch contacts on component mount
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
+  
+  // Update search results when search query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(contacts);
+      return;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    const filtered = contacts.filter(contact => 
+      contact.name.toLowerCase().includes(query) || 
+      (contact.role && contact.role.toLowerCase().includes(query)) ||
+      (contact.company_name && contact.company_name.toLowerCase().includes(query))
+    );
+    setSearchResults(filtered);
+  }, [searchQuery, contacts]);
+  
+  // Update selected contact name when value changes
+  useEffect(() => {
+    if (value && contacts.length > 0) {
+      const contact = contacts.find(c => c.id === value);
+      if (contact) {
+        setSelectedContactName(contact.name);
+      }
+    } else {
+      setSelectedContactName('');
+    }
+  }, [value, contacts]);
   
   // Handle selecting a contact
   const handleSelectContact = (contact: Contact) => {

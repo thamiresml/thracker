@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export default async function WeeklyPlanPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   // Create supabase client
   const supabase = await createClient();

@@ -4,14 +4,34 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Briefcase, Calendar, Building, Clock, ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { Briefcase, Calendar, Clock, ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 import CompanyLogo from '@/components/CompanyLogo';
 
 interface ApplicationDetailProps {
-  application: any;
-  interactions: any[];
+  application: {
+    id: string;
+    position: string;
+    applied_date: string;
+    status: string;
+    job_posting_url?: string;
+    notes?: string;
+    company_id: string;
+    companies?: {
+      name: string;
+      logo?: string;
+      website?: string;
+    };
+  };
+  interactions: Array<{
+    id: string;
+    contact_name: string;
+    contact_role: string;
+    interaction_type: string;
+    interaction_date: string;
+    notes?: string;
+  }>;
 }
 
 export default function ApplicationDetail({ application, interactions }: ApplicationDetailProps) {
@@ -35,9 +55,10 @@ export default function ApplicationDetail({ application, interactions }: Applica
       
       router.refresh();
       router.push('/applications');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting application:', err);
-      setError(err.message);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
       setIsDeleting(false);
       setShowDeleteModal(false);
     }

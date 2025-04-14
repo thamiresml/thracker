@@ -2,11 +2,11 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { format, addWeeks, addDays } from 'date-fns';
 import { 
   CheckCircle, Clock, CheckSquare, Plus, 
-  Calendar, ArrowRight, CheckCheck,
+  Calendar, CheckCheck,
   ChevronDown
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
@@ -45,11 +45,11 @@ export interface Task {
 
 interface TaskBoardProps {
   startDate: Date;
-  endDate: Date;
+  endDate?: Date;
   userId: string;
 }
 
-export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps) {
+export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   const supabase = createClient();
   const startDateFormatted = format(startDate, 'yyyy-MM-dd');
 
@@ -80,13 +80,8 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
   const inProgressTasks = tasks.filter(task => task.status === TASK_STATUS.IN_PROGRESS);
   const doneTasks = tasks.filter(task => task.status === TASK_STATUS.DONE);
 
-  // Load tasks on component mount and when week changes
-  useEffect(() => {
-    fetchTasks();
-  }, [startDateFormatted]);
-
   // Fetch tasks for the current week
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -114,14 +109,20 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
       
       setTasks(data || []);
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching tasks:', err);
-      setError(err.message || 'Failed to load tasks');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load tasks';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  };
-  
+  }, [supabase, userId, startDateFormatted]);
+
+  // Load tasks on component mount and when week changes
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
   // Open task creation modal
   const handleAddTask = (status: string) => {
     setEditingTask(null);
@@ -151,7 +152,7 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
       
       // Update local state
       setTasks(tasks.filter(task => task.id !== taskId));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting task:', err);
     }
   };
@@ -223,7 +224,7 @@ export default function TaskBoard({ startDate, endDate, userId }: TaskBoardProps
       
       alert(`Successfully moved ${selectedTasks.length} tasks to week of ${format(targetDate, 'MMM d, yyyy')}.`);
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error moving tasks:', err);
       alert('Failed to move tasks to selected week.');
     }

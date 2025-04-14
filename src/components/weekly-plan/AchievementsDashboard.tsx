@@ -57,11 +57,59 @@ export default function AchievementsDashboard({ userId, onClose }: AchievementsD
         setAchievements(data || []);
         
         // Calculate various stats
-        await calculateStats();
+        const calculateStats = async (achievementsData: Achievement[]) => {
+          try {
+            // Count tasks completed
+            const { count: tasksCount, error: tasksError } = await supabase
+              .from('tasks')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', userId)
+              .eq('status', 'done');
+            
+            if (tasksError) throw tasksError;
+            
+            // Count applications submitted
+            const { count: appsCount, error: appsError } = await supabase
+              .from('applications')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', userId);
+            
+            if (appsError) throw appsError;
+            
+            // Count networking interactions
+            const { count: interactionsCount, error: interactionsError } = await supabase
+              .from('interactions')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', userId);
+            
+            if (interactionsError) throw interactionsError;
+            
+            // Count perfect weeks (where all goals were met)
+            const perfectWeeksCount = achievementsData?.filter(a => 
+              a.achievement_type === 'weekly_perfect'
+            ).length || 0;
+            
+            // Update stats state
+            setStats({
+              totalAchievements: achievementsData.length,
+              tasksCompleted: tasksCount || 0,
+              applicationsSubmitted: appsCount || 0,
+              interactionsLogged: interactionsCount || 0,
+              perfectWeeks: perfectWeeksCount,
+              currentStreak: 0 // This would need a separate calculation
+            });
+            
+          } catch (err: unknown) {
+            console.error('Error calculating stats:', err);
+          }
+        };
         
-      } catch (err: any) {
+        await calculateStats(data || []);
+        
+      } catch (err: unknown) {
         console.error('Error fetching achievements:', err);
-        setError(err.message || 'Failed to load achievements');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load achievements';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -69,54 +117,6 @@ export default function AchievementsDashboard({ userId, onClose }: AchievementsD
     
     fetchAchievements();
   }, [userId, supabase]);
-  
-  // Calculate various statistics for the user
-  const calculateStats = async () => {
-    try {
-      // Count tasks completed
-      const { count: tasksCount, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'done');
-      
-      if (tasksError) throw tasksError;
-      
-      // Count applications submitted
-      const { count: appsCount, error: appsError } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      
-      if (appsError) throw appsError;
-      
-      // Count networking interactions
-      const { count: interactionsCount, error: interactionsError } = await supabase
-        .from('interactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      
-      if (interactionsError) throw interactionsError;
-      
-      // Count perfect weeks (where all goals were met)
-      const perfectWeeksCount = achievements?.filter(a => 
-        a.achievement_type === 'weekly_perfect'
-      ).length || 0;
-      
-      // Update stats state
-      setStats({
-        totalAchievements: achievements.length,
-        tasksCompleted: tasksCount || 0,
-        applicationsSubmitted: appsCount || 0,
-        interactionsLogged: interactionsCount || 0,
-        perfectWeeks: perfectWeeksCount,
-        currentStreak: 0 // This would need a separate calculation
-      });
-      
-    } catch (err) {
-      console.error('Error calculating stats:', err);
-    }
-  };
   
   // Get icon for achievement type
   const getAchievementIcon = (type: string) => {
@@ -144,7 +144,9 @@ export default function AchievementsDashboard({ userId, onClose }: AchievementsD
     try {
       const date = new Date(dateStr);
       return format(date, 'MMM d, yyyy');
-    } catch (e) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_) {
+      // Ignore parsing errors and return original string
       return dateStr;
     }
   };

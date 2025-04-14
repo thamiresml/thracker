@@ -5,17 +5,17 @@ import { createClient } from '@/utils/supabase/server';
 import ApplicationDetail from './ApplicationDetail';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export const dynamic = 'force-dynamic';
 
 export default async function ApplicationDetailPage({ params }: PageProps) {
   // Await params to comply with Next.js standards
-  const awaitedParams = await params;
-  const { id } = awaitedParams;
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
   
   const supabase = await createClient();
   

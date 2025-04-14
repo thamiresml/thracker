@@ -1,3 +1,5 @@
+// src/app/applications/new/page.tsx
+
 import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
@@ -8,7 +10,13 @@ import ApplicationForm from '../ApplicationForm';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewApplicationPage({ searchParams }: { searchParams: { companyId?: string } }) {
+interface PageProps {
+  searchParams: Promise<{
+    companyId?: string;
+  }>;
+}
+
+export default async function NewApplicationPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   
   const { data: { session } } = await supabase.auth.getSession();
@@ -17,8 +25,18 @@ export default async function NewApplicationPage({ searchParams }: { searchParam
     redirect('/auth/login');
   }
   
+  // Await searchParams to comply with Next.js standards
+  const params = await searchParams;
+  
   // Use searchParams to get the companyId
-  const companyId = searchParams.companyId ? parseInt(searchParams.companyId) : undefined;
+  const companyId = params.companyId ? parseInt(params.companyId) : undefined;
+  
+  // Handle navigation back to applications list
+  const handleClose = () => {
+    // This function will be passed to ApplicationForm but executed in the client component
+    // The router.push happens within the client component's onSubmit
+    return;
+  };
   
   return (
     <DashboardLayout>
@@ -35,7 +53,7 @@ export default async function NewApplicationPage({ searchParams }: { searchParam
       <PageHeader title="New Application" />
       
       <div className="bg-white shadow rounded-lg overflow-hidden p-6">
-        <ApplicationForm preselectedCompanyId={companyId} />
+        <ApplicationForm onClose={handleClose} companyId={companyId} />
       </div>
     </DashboardLayout>
   );

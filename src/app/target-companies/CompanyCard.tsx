@@ -8,10 +8,31 @@ import { createClient } from '@/utils/supabase/client';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 
 interface CompanyCardProps {
-  company: any;
-  applications: any[];
-  interactions: any[];
-  contacts: any[]; // Added contacts prop
+  company: {
+    id: number;
+    name: string;
+    logo?: string;
+    notes?: string;
+    is_target: boolean;
+  };
+  applications: Array<{
+    id: number;
+    position: string;
+    applied_date: string;
+    status: string;
+    company_id: number;
+  }>;
+  interactions: Array<{
+    id: number;
+    contact_id: number;
+    interaction_date: string;
+  }>;
+  contacts: Array<{
+    id: number;
+    name: string;
+    role?: string;
+    company_id: number;
+  }>;
 }
 
 export default function CompanyCard({ company, applications, interactions, contacts }: CompanyCardProps) {
@@ -32,21 +53,6 @@ export default function CompanyCard({ company, applications, interactions, conta
     
     // Get interactions for these contacts
     return interactions.filter(int => contactIds.includes(int.contact_id));
-  };
-  
-  // Helper to get the latest interaction date or "Not contacted" text
-  const getLatestInteractionText = () => {
-    const companyInteractions = getCompanyInteractions();
-    if (companyInteractions.length === 0) {
-      return "Not contacted";
-    }
-    
-    // Sort by date descending and get the first one
-    const sorted = [...companyInteractions].sort((a, b) => 
-      new Date(b.interaction_date).getTime() - new Date(a.interaction_date).getTime()
-    );
-    
-    return formatDate(sorted[0].interaction_date);
   };
   
   // Get contact information with last interaction date per person

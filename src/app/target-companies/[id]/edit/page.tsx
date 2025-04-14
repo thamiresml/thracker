@@ -11,13 +11,16 @@ import EditCompanyForm from './EditCompanyForm';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditCompanyPage({ params }: PageProps) {
-  const { id } = params;
+  // Await params to comply with Next.js standards
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
+  
   const supabase = await createClient();
   
   // Check authentication

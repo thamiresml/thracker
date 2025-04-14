@@ -83,20 +83,23 @@ export default function TaskModal({
         
         if (data) {
           // Transform the data to match the Application interface
-          const formattedData: Application[] = data.map((item: any) => ({
-            id: item.id,
-            position: item.position,
-            companies: item.companies
-              ? { 
-                  id: item.companies.id, 
-                  name: item.companies.name 
-                }
-              : null,
-          }));
+          const formattedData = data.map((item: unknown) => {
+            const typedItem = item as Record<string, unknown>;
+            return {
+              id: typedItem.id as number,
+              position: typedItem.position as string,
+              companies: typedItem.companies
+                ? { 
+                    id: (typedItem.companies as Record<string, unknown>).id as number | null, 
+                    name: (typedItem.companies as Record<string, unknown>).name as string | null 
+                  }
+                : null,
+            };
+          }) as Application[];
           
           setApplications(formattedData);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching applications:', err);
       }
     };
@@ -145,9 +148,10 @@ export default function TaskModal({
       }
       
       onSave();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving task:', err);
-      setError(err.message || 'Failed to save task');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save task';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

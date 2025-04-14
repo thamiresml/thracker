@@ -1,4 +1,5 @@
 // src/app/networking/add-interaction/page.tsx
+
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -9,33 +10,28 @@ import InteractionFormWrapper from './InteractionFormWrapper';
 
 export const dynamic = 'force-dynamic';
 
-interface PageProps {
-  searchParams: {
-    contactId?: string;
-  };
-}
+export default async function AddInteractionPage(props: {
+  searchParams: Promise<{ contactId?: string }>;
+}) {
+  const { contactId } = await props.searchParams;
 
-export default async function AddInteractionPage({ searchParams }: PageProps) {
-  // Properly await searchParams
-  const params = await searchParams;
-  
   const supabase = await createClient();
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   if (!session) {
     redirect('/auth/login');
   }
 
-  // Use the awaited params
-  const preselectedContactId = params.contactId 
-    ? parseInt(params.contactId) 
-    : undefined;
+  const preselectedContactId = contactId ? parseInt(contactId) : undefined;
 
   return (
     <DashboardLayout>
       <div className="flex items-center space-x-2 mb-6">
-        <Link 
-          href="/networking" 
+        <Link
+          href="/networking"
           className="text-indigo-600 hover:text-indigo-800 flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
@@ -46,7 +42,7 @@ export default async function AddInteractionPage({ searchParams }: PageProps) {
       <PageHeader title="Add New Interaction" />
 
       <div className="mt-4">
-        <InteractionFormWrapper 
+        <InteractionFormWrapper
           returnUrl="/networking"
           preselectedContactId={preselectedContactId}
         />

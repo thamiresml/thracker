@@ -4,6 +4,7 @@
 
 import { CalendarClock, MapPin, DollarSign, Edit } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface ApplicationCardProps {
   id: number;
@@ -46,9 +47,11 @@ export default function ApplicationCard({
           <div className="flex items-center">
             <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
               {companyLogo ? (
-                <img 
+                <Image 
                   src={companyLogo} 
                   alt={`${companyName} logo`}
+                  width={48}
+                  height={48}
                   className="h-full w-full object-cover"
                 />
               ) : (

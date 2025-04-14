@@ -84,9 +84,10 @@ export default function WeeklyStats({ startDate, endDate, userId }: WeeklyStatsP
           tasksTotal: totalTasks
         });
         
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching stats:', err);
-        setError(err.message || 'Failed to load data');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }

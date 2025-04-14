@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export default async function CompaniesPage({ 
   searchParams 
 }: { 
-  searchParams: { query?: string, targetOnly?: string } 
+  searchParams: Promise<{ query?: string, targetOnly?: string }> 
 }) {
   // Create the Supabase client
   const supabase = await createClient();
