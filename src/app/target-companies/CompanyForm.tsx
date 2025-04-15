@@ -1,13 +1,15 @@
+// src/app/target-companies/CompanyForm.tsx
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import Image from 'next/image';
 import { X, Building, Globe, LinkIcon, Users, Star, AlertCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import Image from 'next/image';
 
-interface TargetCompanyFormData {
+interface CompanyFormData {
   name: string;
   website?: string;
   industry?: string;
@@ -25,24 +27,23 @@ const priorityOptions = [
   'Low'
 ];
 
-// We'll use the database for company suggestions instead of a hardcoded list
+// We'll fetch company data from the database instead of hardcoding logos
 
 interface CompanyFormProps {
   onClose: () => void;
   companyId?: number;
-  initialData?: Partial<TargetCompanyFormData>;
+  initialData?: Partial<CompanyFormData>;
 }
 
 export default function CompanyForm({ onClose, companyId, initialData }: CompanyFormProps) {
   const router = useRouter();
   const supabase = createClient();
   const modalRef = useRef<HTMLDivElement>(null);
-  const initialFocusRef = useRef<HTMLInputElement>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameExists, setNameExists] = useState(false);
-  const [suggestions, setSuggestions] = useState<{name: string; logo?: string}[]>([]);
+  const [suggestions, setSuggestions] = useState<Array<{id: number; name: string; logo?: string}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const {
@@ -52,11 +53,10 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
     watch,
     formState: { errors },
     setFocus
-  } = useForm<TargetCompanyFormData>({
+  } = useForm<CompanyFormData>({
     defaultValues: initialData ? {
       ...initialData,
-      is_target: initialData.is_target === undefined ? true : Boolean(initialData.is_target),
-      priority: initialData.priority || 'Medium'
+      is_target: initialData.is_target ?? true
     } : {
       priority: 'Medium',
       is_target: true
@@ -68,10 +68,9 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
 
   // Set initial focus on company name field
   useEffect(() => {
-    if (initialFocusRef.current) {
-      initialFocusRef.current.focus();
-    }
-  }, []);
+    // Focus on the name field when component mounts
+    setFocus('name');
+  }, [setFocus]);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -94,40 +93,6 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
       onClose();
     }
   };
-
-  // Fetch data if editing existing company
-  useEffect(() => {
-    const fetchCompany = async () => {
-      if (!companyId || initialData) return;
-      
-      try {
-        const { data: company, error: companyError } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('id', companyId)
-          .single();
-
-        if (companyError) throw companyError;
-
-        if (company) {
-          setValue('name', company.name);
-          setValue('website', company.website);
-          setValue('industry', company.industry);
-          setValue('size', company.size);
-          setValue('logo', company.logo);
-          setValue('description', company.description);
-          setValue('priority', company.priority || 'Medium');
-          setValue('notes', company.notes);
-          setValue('is_target', company.is_target);
-        }
-      } catch (err: unknown) {
-        const error = err as Error;
-        setError(error.message);
-      }
-    };
-
-    fetchCompany();
-  }, [companyId, setValue, supabase, initialData]);
 
   // Check if company name already exists
   useEffect(() => {
@@ -156,9 +121,9 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
     return () => clearTimeout(timer);
   }, [companyName, companyId, supabase]);
 
-  // Find logo suggestions based on company name from the database
+  // Find company suggestions from Supabase database
   useEffect(() => {
-    const fetchSuggestions = async () => {
+    const fetchCompanySuggestions = async () => {
       if (!companyName || companyName.trim().length < 2) {
         setSuggestions([]);
         setShowSuggestions(false);
@@ -166,72 +131,39 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
       }
       
       try {
-        // Search for companies in the database that match the input
+        // Search for similar companies in the database
         const { data, error } = await supabase
           .from('companies')
           .select('id, name, logo')
           .ilike('name', `%${companyName}%`)
-          .limit(5);
+          .limit(3);
           
         if (error) throw error;
         
         if (data && data.length > 0) {
           setSuggestions(data);
           setShowSuggestions(true);
-          
-          // If we have an exact match, automatically set the logo
-          const exactMatch = data.find(
-            company => company.name.toLowerCase() === companyName.toLowerCase()
-          );
-          
-          if (exactMatch && !logoUrl) {
-            setValue('logo', exactMatch.logo);
-          }
-        } else {
-          // If no matches in the database, try Clearbit as a fallback
-          const cleanName = companyName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (cleanName.length > 2) {
-            const suggestedLogo = `https://logo.clearbit.com/${cleanName}.com`;
-            setSuggestions([{ name: companyName, logo: suggestedLogo }]);
-            setShowSuggestions(true);
-          } else {
-            setSuggestions([]);
-            setShowSuggestions(false);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching company suggestions:', err);
-        
-        // Fallback to Clearbit if there's an error
-        const cleanName = companyName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (cleanName.length > 2) {
-          const suggestedLogo = `https://logo.clearbit.com/${cleanName}.com`;
-          setSuggestions([{ name: companyName, logo: suggestedLogo }]);
-          setShowSuggestions(true);
         } else {
           setSuggestions([]);
           setShowSuggestions(false);
         }
+      } catch (err) {
+        console.error('Error fetching company suggestions:', err);
+        setSuggestions([]);
+        setShowSuggestions(false);
       }
     };
     
-    // Add a small debounce for better performance
+    // Debounce the search
     const timer = setTimeout(() => {
-      fetchSuggestions();
+      fetchCompanySuggestions();
     }, 300);
     
     return () => clearTimeout(timer);
-  }, [companyName, logoUrl, setValue, supabase]);
+  }, [companyName, supabase]);
 
-  // After form is mounted, focus the name input
-  useEffect(() => {
-    if (!companyId) {
-      setFocus('name');
-    }
-  }, [companyId, setFocus]);
-
-  // Handle form submit
-  const onSubmit = async (data: TargetCompanyFormData) => {
+  // Handle form submission
+  const onSubmit = async (data: CompanyFormData) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -296,8 +228,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
       router.refresh();
       onClose();
     } catch (err: unknown) {
-      const error = err as Error;
-      setError(error.message);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -306,17 +237,18 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
   // Preview logo if available
   const logoPreview = logoUrl ? (
     <div className="mt-2 flex items-center">
-      <div className="relative h-12 w-12 border border-gray-200 rounded-md overflow-hidden bg-white">
-        <Image 
-          src={logoUrl || ''}
-          alt="Logo preview" 
-          fill
-          className="object-contain"
-          sizes="48px"
-          unoptimized
-        />
-      </div>
-      <span className="ml-2 text-sm text-gray-500">Logo preview</span>
+      <Image 
+        src={logoUrl} 
+        alt="Logo preview" 
+        width={40}
+        height={40}
+        className="h-10 w-10 object-contain bg-white border border-gray-200 rounded-md"
+        onError={(e) => {
+          const target = e.currentTarget as HTMLImageElement;
+          target.src = 'https://placehold.co/48x48/f7f7f7/cccccc?text=Logo';
+        }}
+      />
+      <span className="ml-2 text-xs text-gray-500">Logo preview</span>
     </div>
   ) : null;
 
@@ -327,11 +259,11 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
     >
       <div 
         ref={modalRef}
-        className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative animate-fade-in-up"
+        className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5 relative animate-fade-in-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900">
             {companyId ? 'Edit Company' : 'Add Company'}
           </h2>
           <button
@@ -344,13 +276,13 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 p-4 rounded-md border border-red-200 flex items-start">
-            <AlertCircle className="h-5 w-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+          <div className="mb-4 bg-red-50 p-3 rounded-md border border-red-200 flex items-start">
+            <AlertCircle className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit((data) => onSubmit(data as TargetCompanyFormData))} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
               <div className="flex items-center">
@@ -367,15 +299,8 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
                 } shadow-sm focus:outline-none px-3 py-2`}
                 placeholder="e.g. Acme Inc."
                 {...register('name', { 
-                  required: 'Company name is required',
-                  onChange: () => {} // Dummy onChange to avoid ref warning
+                  required: 'Company name is required'
                 })}
-                ref={(e) => {
-                  // Handle both the form registration and the focus
-                  const { ref } = register('name');
-                  ref(e);
-                  initialFocusRef.current = e;
-                }}
               />
               {nameExists && !companyId && (
                 <div className="mt-1 text-xs text-red-600 flex items-center">
@@ -389,7 +314,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
                 <div className="flex items-center">
@@ -400,7 +325,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
               <input
                 type="text"
                 id="website"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
+                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2 text-sm"
                 placeholder="e.g. https://acme.com"
                 {...register('website')}
               />
@@ -413,14 +338,14 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
               <input
                 type="text"
                 id="industry"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
+                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2 text-sm"
                 placeholder="e.g. Technology"
                 {...register('industry')}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="size" className="block text-sm font-medium text-gray-700 mb-1">
                 <div className="flex items-center">
@@ -431,7 +356,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
               <input
                 type="text"
                 id="size"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
+                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2 text-sm"
                 placeholder="e.g. 100-500 employees"
                 {...register('size')}
               />
@@ -446,7 +371,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
               </label>
               <select
                 id="priority"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
+                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2 text-sm"
                 {...register('priority')}
               >
                 {priorityOptions.map((priority) => (
@@ -468,65 +393,50 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
             <input
               type="text"
               id="logo"
-              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
+              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2 text-sm"
               placeholder="e.g. https://logo.clearbit.com/acme.com"
               {...register('logo')}
             />
             {logoPreview}
             
-            {showSuggestions && (
+            {showSuggestions && suggestions.length > 0 && (
               <div className="mt-2">
-                <p className="text-sm font-medium text-gray-700 mb-1">Suggested logos:</p>
+                <p className="text-xs font-medium text-gray-700 mb-1">Existing companies:</p>
                 <div className="flex flex-wrap gap-2">
-                  {suggestions.map((company, index) => (
+                  {suggestions.map((company) => (
                     <button
-                      key={index}
+                      key={company.id}
                       type="button"
-                      onClick={() => setValue('logo', company.logo)}
-                      className="flex flex-col items-center p-2 border border-gray-200 rounded-md hover:bg-gray-50"
+                      onClick={() => {
+                        setValue('name', company.name);
+                        setValue('logo', company.logo || '');
+                        setShowSuggestions(false);
+                      }}
+                      className="flex items-center p-1.5 border border-gray-200 rounded-md hover:bg-gray-50"
                     >
-                      <div className="relative h-8 w-8">
+                      {company.logo ? (
                         <Image 
-                          src={company.logo || ''}
-                          alt={`${company.name} logo`}
-                          fill
-                          className="object-contain" 
-                          sizes="32px"
-                          unoptimized
+                          src={company.logo} 
+                          alt={`${company.name} logo`} 
+                          width={24}
+                          height={24}
+                          className="h-6 w-6 object-contain mr-2"
+                          onError={(e) => {
+                            const target = e.currentTarget as HTMLImageElement;
+                            target.src = 'https://placehold.co/24x24/f7f7f7/cccccc?text=Logo';
+                          }}
                         />
-                      </div>
-                      <span className="text-xs text-gray-500 mt-1">Use</span>
+                      ) : (
+                        <div className="h-6 w-6 bg-gray-100 rounded-full flex items-center justify-center mr-2">
+                          <span className="text-xs text-gray-500">{company.name.charAt(0)}</span>
+                        </div>
+                      )}
+                      <span className="text-xs">{company.name}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
-          </div>
-
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Company Description
-            </label>
-            <textarea
-              id="description"
-              rows={2}
-              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
-              placeholder="Brief description of the company..."
-              {...register('description')}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              rows={3}
-              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
-              placeholder="Why you're interested, contacts, etc."
-              {...register('notes')}
-            />
           </div>
           
           <div className="flex items-center">
@@ -541,18 +451,32 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
             </label>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+              Company Description
+            </label>
+            <textarea
+              id="description"
+              rows={2}
+              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2 text-sm"
+              placeholder="Brief description of the company..."
+              {...register('description')}
+            ></textarea>
+          </div>
+
+
+          <div className="flex justify-end space-x-3 pt-2 border-t border-gray-100 mt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="px-3 py-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading || nameExists}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              className="px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {isLoading ? 'Saving...' : companyId ? 'Update' : 'Save'}
             </button>
