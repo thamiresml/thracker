@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export default async function WeeklyPlanPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Record<string, string | string[] | undefined>;
 }) {
   // Create supabase client
   const supabase = await createClient();
@@ -53,7 +53,7 @@ export default async function WeeklyPlanPage({
     }
   }
 
-  // Calculate week boundaries
+  // Calculate week boundaries (using Monday as start of week)
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // End on Sunday
   
@@ -107,7 +107,7 @@ export default async function WeeklyPlanPage({
               <h3 className="text-lg font-medium text-gray-900 mb-3">Month Overview</h3>
               <MiniCalendar 
                 currentDate={currentDate}
-                weekStartsOn={1}
+                weekStartsOn={1} // Explicitly set to Monday (1)
               />
               
               <div className="mt-6 border-t border-gray-200 pt-4">
