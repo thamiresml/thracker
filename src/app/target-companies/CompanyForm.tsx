@@ -1,11 +1,13 @@
+// src/app/target-companies/CompanyForm.tsx
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { X, Building, Globe, LinkIcon, Users, Star, AlertCircle } from 'lucide-react';
-import { createClient } from '@/utils/supabase/client';
 import Image from 'next/image';
+import { X, Building, Globe, DollarSign, LinkIcon, Users, Star, AlertCircle } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 
 interface TargetCompanyFormData {
   name: string;
@@ -19,49 +21,18 @@ interface TargetCompanyFormData {
   is_target: boolean;
 }
 
-interface Company {
-  name: string;
-  logo: string;
-}
-
-// Define types for error handling
-interface SupabaseError {
-  message: string;
-}
-
 const priorityOptions = [
   'High',
   'Medium',
   'Low'
 ];
 
-// Popular company logos for easy access
-const popularCompanies: Company[] = [
-  { name: 'Google', logo: 'https://logo.clearbit.com/google.com' },
-  { name: 'Microsoft', logo: 'https://logo.clearbit.com/microsoft.com' },
-  { name: 'Amazon', logo: 'https://logo.clearbit.com/amazon.com' },
-  { name: 'Apple', logo: 'https://logo.clearbit.com/apple.com' },
-  { name: 'Meta', logo: 'https://logo.clearbit.com/meta.com' },
-  { name: 'Netflix', logo: 'https://logo.clearbit.com/netflix.com' },
-  { name: 'Tesla', logo: 'https://logo.clearbit.com/tesla.com' },
-  { name: 'Salesforce', logo: 'https://logo.clearbit.com/salesforce.com' },
-  { name: 'Adobe', logo: 'https://logo.clearbit.com/adobe.com' },
-  { name: 'IBM', logo: 'https://logo.clearbit.com/ibm.com' },
-  { name: 'Honda', logo: 'https://logo.clearbit.com/honda.com' },
-  { name: 'Toyota', logo: 'https://logo.clearbit.com/toyota.com' },
-  { name: 'Ford', logo: 'https://logo.clearbit.com/ford.com' },
-  { name: 'Walmart', logo: 'https://logo.clearbit.com/walmart.com' },
-  { name: 'Target', logo: 'https://logo.clearbit.com/target.com' },
-  { name: 'Nike', logo: 'https://logo.clearbit.com/nike.com' },
-  { name: 'Adidas', logo: 'https://logo.clearbit.com/adidas.com' },
-  { name: 'Coca-Cola', logo: 'https://logo.clearbit.com/coca-cola.com' },
-  { name: 'Pepsi', logo: 'https://logo.clearbit.com/pepsico.com' },
-];
+// We'll use the database for company suggestions instead of a hardcoded list
 
 interface CompanyFormProps {
   onClose: () => void;
   companyId?: number;
-  initialData?: TargetCompanyFormData;
+  initialData?: any;
 }
 
 export default function CompanyForm({ onClose, companyId, initialData }: CompanyFormProps) {
@@ -73,7 +44,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameExists, setNameExists] = useState(false);
-  const [suggestions, setSuggestions] = useState<Company[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const {
@@ -150,9 +121,8 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
           setValue('notes', company.notes);
           setValue('is_target', company.is_target);
         }
-      } catch (err: unknown) {
-        const error = err as SupabaseError;
-        setError(error.message);
+      } catch (err: any) {
+        setError(err.message);
       }
     };
 
@@ -174,9 +144,8 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
         if (error) throw error;
         
         setNameExists(data && data.length > 0);
-      } catch (err: unknown) {
-        const error = err as SupabaseError;
-        console.error('Error checking company name:', error.message);
+      } catch (err) {
+        console.error('Error checking company name:', err);
       }
     };
     
@@ -187,43 +156,72 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
     return () => clearTimeout(timer);
   }, [companyName, companyId, supabase]);
 
-  // Find logo suggestions based on company name
+  // Find logo suggestions based on company name from the database
   useEffect(() => {
-    if (!companyName || companyName.trim().length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-    
-    const matchedCompanies = popularCompanies.filter(company => 
-      company.name.toLowerCase().includes(companyName.toLowerCase())
-    );
-    
-    if (matchedCompanies.length > 0) {
-      setSuggestions(matchedCompanies);
-      setShowSuggestions(true);
-      
-      // If we have an exact match, automatically set the logo
-      const exactMatch = matchedCompanies.find(
-        company => company.name.toLowerCase() === companyName.toLowerCase()
-      );
-      
-      if (exactMatch && !logoUrl) {
-        setValue('logo', exactMatch.logo);
-      }
-    } else {
-      // Try to generate a logo URL from Clearbit
-      const cleanName = companyName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (cleanName.length > 2) {
-        const suggestedLogo = `https://logo.clearbit.com/${cleanName}.com`;
-        setSuggestions([{ name: companyName, logo: suggestedLogo }]);
-        setShowSuggestions(true);
-      } else {
+    const fetchSuggestions = async () => {
+      if (!companyName || companyName.trim().length < 2) {
         setSuggestions([]);
         setShowSuggestions(false);
+        return;
       }
-    }
-  }, [companyName, logoUrl, setValue]);
+      
+      try {
+        // Search for companies in the database that match the input
+        const { data, error } = await supabase
+          .from('companies')
+          .select('id, name, logo')
+          .ilike('name', `%${companyName}%`)
+          .limit(5);
+          
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setSuggestions(data);
+          setShowSuggestions(true);
+          
+          // If we have an exact match, automatically set the logo
+          const exactMatch = data.find(
+            company => company.name.toLowerCase() === companyName.toLowerCase()
+          );
+          
+          if (exactMatch && !logoUrl) {
+            setValue('logo', exactMatch.logo);
+          }
+        } else {
+          // If no matches in the database, try Clearbit as a fallback
+          const cleanName = companyName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (cleanName.length > 2) {
+            const suggestedLogo = `https://logo.clearbit.com/${cleanName}.com`;
+            setSuggestions([{ name: companyName, logo: suggestedLogo }]);
+            setShowSuggestions(true);
+          } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching company suggestions:', err);
+        
+        // Fallback to Clearbit if there's an error
+        const cleanName = companyName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanName.length > 2) {
+          const suggestedLogo = `https://logo.clearbit.com/${cleanName}.com`;
+          setSuggestions([{ name: companyName, logo: suggestedLogo }]);
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      }
+    };
+    
+    // Add a small debounce for better performance
+    const timer = setTimeout(() => {
+      fetchSuggestions();
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [companyName, logoUrl, setValue, supabase]);
 
   // After form is mounted, focus the name input
   useEffect(() => {
@@ -297,9 +295,8 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
       // Refresh page & close
       router.refresh();
       onClose();
-    } catch (err: unknown) {
-      const error = err as SupabaseError;
-      setError(error.message);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -308,13 +305,16 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
   // Preview logo if available
   const logoPreview = logoUrl ? (
     <div className="mt-2 flex items-center">
-      <Image 
-        src={logoUrl} 
-        alt="Logo preview" 
-        width={48}
-        height={48}
-        className="h-12 w-12 object-contain bg-white border border-gray-200 rounded-md"
-      />
+      <div className="relative h-12 w-12 border border-gray-200 rounded-md overflow-hidden bg-white">
+        <Image 
+          src={logoUrl} 
+          alt="Logo preview" 
+          fill
+          className="object-contain"
+          sizes="48px"
+          unoptimized
+        />
+      </div>
       <span className="ml-2 text-sm text-gray-500">Logo preview</span>
     </div>
   ) : null;
@@ -366,8 +366,15 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
                 } shadow-sm focus:outline-none px-3 py-2`}
                 placeholder="e.g. Acme Inc."
                 {...register('name', { 
-                  required: 'Company name is required'
+                  required: 'Company name is required',
+                  onChange: () => {} // Dummy onChange to avoid ref warning
                 })}
+                ref={(e) => {
+                  // Handle both the form registration and the focus
+                  const { ref } = register('name');
+                  ref(e);
+                  initialFocusRef.current = e;
+                }}
               />
               {nameExists && !companyId && (
                 <div className="mt-1 text-xs text-red-600 flex items-center">
@@ -477,13 +484,16 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
                       onClick={() => setValue('logo', company.logo)}
                       className="flex flex-col items-center p-2 border border-gray-200 rounded-md hover:bg-gray-50"
                     >
-                      <Image 
-                        src={company.logo} 
-                        alt={`${company.name} logo`} 
-                        width={32}
-                        height={32}
-                        className="h-8 w-8 object-contain"
-                      />
+                      <div className="relative h-8 w-8">
+                        <Image 
+                          src={company.logo} 
+                          alt={`${company.name} logo`}
+                          fill
+                          className="object-contain" 
+                          sizes="32px"
+                          unoptimized
+                        />
+                      </div>
                       <span className="text-xs text-gray-500 mt-1">Use</span>
                     </button>
                   ))}

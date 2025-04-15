@@ -1,11 +1,12 @@
 // src/app/applications/ApplicationForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { X, Calendar, Briefcase, Building, MapPin, DollarSign } from 'lucide-react';
+import { X, Calendar, Briefcase, Building, MapPin, DollarSign, Link, Search, Plus } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import CompanyForm from '@/app/target-companies/CompanyForm';
 
 interface Company {
   id: number;
@@ -17,9 +18,10 @@ interface ApplicationFormData {
   companyId: number;
   position: string;
   status: string;
-  appliedDate: string;
+  appliedDate?: string;
   location?: string;
   salary?: string;
+  jobPostingUrl?: string;
   notes?: string;
 }
 
@@ -37,27 +39,62 @@ const statusOptions = [
 interface ApplicationFormProps {
   onClose: () => void;
   applicationId?: number;
-  companyId?: number;
+  preselectedCompanyId?: number;
 }
 
-export default function ApplicationForm({ onClose, applicationId, companyId }: ApplicationFormProps) {
+export default function ApplicationForm({ onClose, applicationId, preselectedCompanyId }: ApplicationFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
+  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Forms
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors }
   } = useForm<ApplicationFormData>({
     defaultValues: {
       appliedDate: new Date().toISOString().split('T')[0],
     }
   });
+
+  const selectedCompanyId = watch('companyId');
+  const selectedStatus = watch('status');
+
+  // Update appliedDate validation when status changes
+  useEffect(() => {
+    // When status changes to "Saved", clear the applied date
+    if (selectedStatus === 'Saved') {
+      setValue('appliedDate', undefined);
+    } else if (!watch('appliedDate')) {
+      // When changing from "Saved" to another status and no date is set, set today's date
+      setValue('appliedDate', new Date().toISOString().split('T')[0]);
+    }
+  }, [selectedStatus, setValue, watch]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowCompanyDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Fetch data on mount or when applicationId changes
   useEffect(() => {
@@ -71,10 +108,11 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
 
         if (companiesError) throw companiesError;
         setCompanies(companiesData || []);
+        setFilteredCompanies(companiesData || []);
 
-        // Set companyId from props if provided
-        if (companyId) {
-          setValue('companyId', companyId);
+        // If preselectedCompanyId is provided, set the form value
+        if (preselectedCompanyId) {
+          setValue('companyId', preselectedCompanyId);
         }
 
         // 2) If editing, load existing application
@@ -94,17 +132,78 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
             setValue('appliedDate', application.applied_date);
             setValue('location', application.location);
             setValue('salary', application.salary);
+            setValue('jobPostingUrl', application.job_posting_url);
             setValue('notes', application.notes);
           }
         }
-      } catch (err: unknown) {
-        const apiError = err as { message: string };
-        setError(apiError.message);
+      } catch (err: any) {
+        setError(err.message);
       }
     };
 
     fetchData();
-  }, [applicationId, setValue, supabase, companyId]);
+  }, [applicationId, setValue, supabase, preselectedCompanyId]);
+
+  // Filter companies based on search query
+  useEffect(() => {
+    if (companySearchQuery.trim() === '') {
+      setFilteredCompanies(companies);
+    } else {
+      const filtered = companies.filter(company => 
+        company.name.toLowerCase().includes(companySearchQuery.toLowerCase())
+      );
+      setFilteredCompanies(filtered);
+    }
+  }, [companySearchQuery, companies]);
+
+  // Get selected company name
+  const getSelectedCompanyName = () => {
+    if (!selectedCompanyId) return '';
+    const company = companies.find(c => c.id === Number(selectedCompanyId));
+    return company ? company.name : '';
+  };
+
+  // Handle company selection from dropdown
+  const handleSelectCompany = (companyId: number) => {
+    setValue('companyId', companyId);
+    setShowCompanyDropdown(false);
+    setCompanySearchQuery('');
+  };
+
+  // Effect to refetch companies after CompanyForm modal is closed
+  useEffect(() => {
+    // If the modal is not showing and we previously had it open, 
+    // we should refresh the companies list in case one was added
+    if (!showCompanyModal && companies.length > 0) {
+      const fetchCompanies = async () => {
+        try {
+          const { data: companiesData, error: companiesError } = await supabase
+            .from('companies')
+            .select('id, name, logo')
+            .order('name');
+
+          if (companiesError) throw companiesError;
+          
+          if (companiesData) {
+            setCompanies(companiesData);
+            // If there are new companies, select the newest one (last in the array)
+            const newCompanies = companiesData.filter(
+              comp => !companies.some(oldComp => oldComp.id === comp.id)
+            );
+            
+            if (newCompanies.length > 0) {
+              // Select the newly created company
+              setValue('companyId', newCompanies[0].id);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching companies:', err);
+        }
+      };
+
+      fetchCompanies();
+    }
+  }, [showCompanyModal, supabase, setValue, companies]);
 
   // Handle form submit
   const onSubmit = async (data: ApplicationFormData) => {
@@ -117,6 +216,9 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
       if (userError) throw new Error(userError.message);
       if (!user) throw new Error('User not authenticated');
 
+      // Determine if we need an applied date based on status
+      const applied_date = data.status === 'Saved' ? null : data.appliedDate;
+
       // 4) Insert/update
       if (applicationId) {
         // Update existing
@@ -126,9 +228,10 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
             company_id: data.companyId,
             position: data.position,
             status: data.status,
-            applied_date: data.appliedDate,
+            applied_date,
             location: data.location,
             salary: data.salary,
+            job_posting_url: data.jobPostingUrl,
             notes: data.notes
           })
           .eq('id', applicationId);
@@ -142,9 +245,10 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
             company_id: data.companyId,
             position: data.position,
             status: data.status,
-            applied_date: data.appliedDate,
+            applied_date,
             location: data.location,
             salary: data.salary,
+            job_posting_url: data.jobPostingUrl,
             notes: data.notes,
             user_id: user.id
           });
@@ -155,9 +259,8 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
       // Refresh page & close
       router.refresh();
       onClose();
-    } catch (err: unknown) {
-      const apiError = err as { message: string };
-      setError(apiError.message);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -187,26 +290,101 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
-            <label htmlFor="companyId" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
               <div className="flex items-center">
                 <Building className="h-4 w-4 mr-1.5 text-gray-500" />
                 Company
               </div>
             </label>
-            <select
-              id="companyId"
-              className={`w-full rounded-md border ${
-                errors.companyId ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
-              } shadow-sm focus:outline-none`}
-              {...register('companyId', { required: 'Company is required' })}
-            >
-              <option value="">Select a company</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={dropdownRef}>
+              {/* Selected company display or search input */}
+              <div
+                className={`w-full flex items-center rounded-md border ${
+                  errors.companyId ? 'border-red-300 focus-within:border-red-500 focus-within:ring-red-500' : 'border-gray-300 focus-within:border-purple-500 focus-within:ring-purple-500'
+                } shadow-sm focus-within:ring-1 focus-within:outline-none px-3 py-2 cursor-pointer`}
+                onClick={() => setShowCompanyDropdown(true)}
+              >
+                {selectedCompanyId ? (
+                  <div className="flex items-center justify-between w-full">
+                    <span>{getSelectedCompanyName()}</span>
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-500"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setValue('companyId', 0);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center w-full">
+                    <Search className="h-4 w-4 text-gray-400 mr-2" />
+                    <input
+                      type="text"
+                      placeholder="Search companies..."
+                      className="w-full border-0 focus:ring-0 p-0"
+                      value={companySearchQuery}
+                      onChange={(e) => {
+                        setCompanySearchQuery(e.target.value);
+                        setShowCompanyDropdown(true);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Hidden input for form validation */}
+              <input
+                type="hidden"
+                {...register('companyId', { required: 'Company is required' })}
+              />
+              
+              {/* Company dropdown */}
+              {showCompanyDropdown && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-56 overflow-auto">
+                  {filteredCompanies.length > 0 ? (
+                    <>
+                      {filteredCompanies.map((company) => (
+                        <div
+                          key={company.id}
+                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => handleSelectCompany(company.id)}
+                        >
+                          {company.name}
+                        </div>
+                      ))}
+                      <div 
+                        className="px-4 py-2 border-t border-gray-200 text-purple-600 hover:bg-purple-50 cursor-pointer flex items-center" 
+                        onClick={() => {
+                          setShowCompanyModal(true);
+                          setShowCompanyDropdown(false);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add a new company
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="px-4 py-2 text-gray-500">No companies found</div>
+                      <div 
+                        className="px-4 py-2 border-t border-gray-200 text-purple-600 hover:bg-purple-50 cursor-pointer flex items-center" 
+                        onClick={() => {
+                          setShowCompanyModal(true);
+                          setShowCompanyDropdown(false);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add "{companySearchQuery}" as a new company
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
             {errors.companyId && (
               <p className="mt-1 text-xs text-red-600">
                 {errors.companyId.message}
@@ -226,7 +404,7 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
               id="position"
               className={`w-full rounded-md border ${
                 errors.position ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
-              } shadow-sm focus:outline-none`}
+              } shadow-sm focus:outline-none px-3 py-2`}
               placeholder="e.g. Frontend Developer"
               {...register('position', { required: 'Position is required' })}
             />
@@ -244,7 +422,7 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
                 id="status"
                 className={`w-full rounded-md border ${
                   errors.status ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
-                } shadow-sm focus:outline-none`}
+                } shadow-sm focus:outline-none px-3 py-2`}
                 {...register('status', { required: 'Status is required' })}
               >
                 <option value="">Select status</option>
@@ -263,17 +441,25 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
               <label htmlFor="appliedDate" className="block text-sm font-medium text-gray-700 mb-1">
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
-                  Applied Date
+                  {selectedStatus === 'Saved' ? 'Saved Date' : 'Applied Date'}
                 </div>
               </label>
-              <input
-                type="date"
-                id="appliedDate"
-                className={`w-full rounded-md border ${
-                  errors.appliedDate ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
-                } shadow-sm focus:outline-none`}
-                {...register('appliedDate', { required: 'Application date is required' })}
-              />
+              {selectedStatus === 'Saved' ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                  Not applicable
+                </div>
+              ) : (
+                <input
+                  type="date"
+                  id="appliedDate"
+                  className={`w-full rounded-md border ${
+                    errors.appliedDate ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
+                  } shadow-sm focus:outline-none px-3 py-2`}
+                  {...register('appliedDate', { 
+                    required: selectedStatus !== 'Saved' ? 'Application date is required' : false 
+                  })}
+                />
+              )}
               {errors.appliedDate && (
                 <p className="mt-1 text-xs text-red-600">{errors.appliedDate.message}</p>
               )}
@@ -291,7 +477,7 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
               <input
                 type="text"
                 id="location"
-                className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none"
+                className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none px-3 py-2"
                 placeholder="e.g. Remote, New York, etc."
                 {...register('location')}
               />
@@ -307,11 +493,27 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
               <input
                 type="text"
                 id="salary"
-                className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none"
+                className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none px-3 py-2"
                 placeholder="e.g. $80,000 - $95,000"
                 {...register('salary')}
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="jobPostingUrl" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="flex items-center">
+                <Link className="h-4 w-4 mr-1.5 text-gray-500" />
+                Job Posting URL
+              </div>
+            </label>
+            <input
+              type="url"
+              id="jobPostingUrl"
+              className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none px-3 py-2"
+              placeholder="e.g. https://company.com/jobs/position"
+              {...register('jobPostingUrl')}
+            />
           </div>
 
           <div>
@@ -321,7 +523,7 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
             <textarea
               id="notes"
               rows={3}
-              className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none"
+              className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none px-3 py-2"
               placeholder="Any additional notes about this application..."
               {...register('notes')}
             />
@@ -345,6 +547,15 @@ export default function ApplicationForm({ onClose, applicationId, companyId }: A
           </div>
         </form>
       </div>
+
+      {/* Add Company Modal */}
+      {showCompanyModal && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-[60]">
+          <CompanyForm 
+            onClose={() => setShowCompanyModal(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
