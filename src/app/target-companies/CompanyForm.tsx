@@ -1,12 +1,10 @@
-// src/app/target-companies/CompanyForm.tsx
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import Image from 'next/image';
-import { X, Building, Globe, DollarSign, LinkIcon, Users, Star, AlertCircle } from 'lucide-react';
+import { X, Building, Globe, LinkIcon, Users, Star, AlertCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 interface TargetCompanyFormData {
@@ -32,7 +30,7 @@ const priorityOptions = [
 interface CompanyFormProps {
   onClose: () => void;
   companyId?: number;
-  initialData?: any;
+  initialData?: Partial<TargetCompanyFormData>;
 }
 
 export default function CompanyForm({ onClose, companyId, initialData }: CompanyFormProps) {
@@ -44,7 +42,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameExists, setNameExists] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<{name: string; logo?: string}[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const {
@@ -57,7 +55,8 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
   } = useForm<TargetCompanyFormData>({
     defaultValues: initialData ? {
       ...initialData,
-      is_target: initialData.is_target ?? true
+      is_target: initialData.is_target === undefined ? true : Boolean(initialData.is_target),
+      priority: initialData.priority || 'Medium'
     } : {
       priority: 'Medium',
       is_target: true
@@ -121,8 +120,9 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
           setValue('notes', company.notes);
           setValue('is_target', company.is_target);
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const error = err as Error;
+        setError(error.message);
       }
     };
 
@@ -295,8 +295,9 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
       // Refresh page & close
       router.refresh();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -307,7 +308,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
     <div className="mt-2 flex items-center">
       <div className="relative h-12 w-12 border border-gray-200 rounded-md overflow-hidden bg-white">
         <Image 
-          src={logoUrl} 
+          src={logoUrl || ''}
           alt="Logo preview" 
           fill
           className="object-contain"
@@ -349,7 +350,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={handleSubmit((data) => onSubmit(data as TargetCompanyFormData))} className="space-y-5">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
               <div className="flex items-center">
@@ -486,7 +487,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
                     >
                       <div className="relative h-8 w-8">
                         <Image 
-                          src={company.logo} 
+                          src={company.logo || ''}
                           alt={`${company.name} logo`}
                           fill
                           className="object-contain" 

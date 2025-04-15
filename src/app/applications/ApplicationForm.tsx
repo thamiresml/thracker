@@ -136,8 +136,9 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
             setValue('notes', application.notes);
           }
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const error = err as Error;
+        setError(error.message);
       }
     };
 
@@ -259,8 +260,9 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
       // Refresh page & close
       router.refresh();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -378,7 +380,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
                         }}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add "{companySearchQuery}" as a new company
+                        Add &ldquo;{companySearchQuery}&rdquo; as a new company
                       </div>
                     </>
                   )}

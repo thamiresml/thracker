@@ -1,3 +1,5 @@
+// src/app/applications/new/page.tsx
+
 import { redirect } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
@@ -8,7 +10,13 @@ import ApplicationForm from '../ApplicationForm';
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewApplicationPage({ searchParams }: { searchParams: { companyId?: string } }) {
+export default async function NewApplicationPage({ 
+  searchParams 
+}: { 
+  searchParams: Promise<{ companyId?: string }> 
+}) {
+  // Await the searchParams Promise to get the actual values
+  const resolvedParams = await searchParams;
   const supabase = await createClient();
   
   const { data: { session } } = await supabase.auth.getSession();
@@ -17,8 +25,8 @@ export default async function NewApplicationPage({ searchParams }: { searchParam
     redirect('/auth/login');
   }
   
-  // Use searchParams to get the companyId
-  const preselectedCompanyId = searchParams.companyId ? parseInt(searchParams.companyId) : undefined;
+  // Use the awaited searchParams to get the companyId
+  const preselectedCompanyId = resolvedParams.companyId ? parseInt(resolvedParams.companyId) : undefined;
   
   return (
     <DashboardLayout>
