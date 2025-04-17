@@ -12,8 +12,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function AddInteractionPage(props: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnUrl?: string }>;
 }) {
   const { id } = await props.params;
+  const { returnUrl } = await props.searchParams;
 
   const supabase = await createClient();
   const {
@@ -26,16 +28,17 @@ export default async function AddInteractionPage(props: {
   }
 
   const contactId = parseInt(id);
+  const navigateBackUrl = returnUrl || `/networking/contacts/${id}`;
 
   return (
     <DashboardLayout>
       <div className="flex items-center space-x-2 mb-6">
         <Link
-          href={`/networking/contacts/${id}`}
+          href={navigateBackUrl}
           className="text-indigo-600 hover:text-indigo-800 flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
-          <span>Back to Contact</span>
+          <span>Back</span>
         </Link>
       </div>
 
@@ -44,7 +47,7 @@ export default async function AddInteractionPage(props: {
       <div className="mt-4">
         <InteractionFormWrapper
           preselectedContactId={contactId}
-          returnUrl={`/networking/contacts/${id}`}
+          returnUrl={navigateBackUrl}
         />
       </div>
     </DashboardLayout>

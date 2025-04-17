@@ -1,4 +1,4 @@
-// src/components/applications/ApplicationCard.tsx
+// src/app/applications/ApplicationCard.tsx
 
 'use client';
 
@@ -12,7 +12,8 @@ interface ApplicationCardProps {
   companyLogo?: string;
   position: string;
   status: string;
-  appliedDate: string;
+  appliedDate?: string;
+  createdAt?: string;
   location?: string;
   salary?: string;
 }
@@ -24,6 +25,7 @@ export default function ApplicationCard({
   position,
   status,
   appliedDate,
+  createdAt,
   location,
   salary
 }: ApplicationCardProps) {
@@ -31,12 +33,40 @@ export default function ApplicationCard({
   const getStatusColor = (status: string) => {
     switch(status) {
       case 'Accepted': return 'bg-green-100 text-green-800';
-      case 'Rejected': return 'bg-red-100 text-red-800';
-      case 'Interviewing': return 'bg-blue-100 text-blue-800';
-      case 'Negotiating': return 'bg-orange-100 text-orange-800';
+      case 'Offer': return 'bg-green-100 text-green-800';
+      case 'Not Selected': return 'bg-red-100 text-red-800';
+      case 'Interview': return 'bg-blue-100 text-blue-800';
+      case 'Assessment': return 'bg-yellow-100 text-yellow-800';
       case 'Applied': return 'bg-purple-100 text-purple-800';
-      case 'Bookmarked': return 'bg-gray-100 text-gray-800';
+      case 'Saved': return 'bg-gray-100 text-gray-800';
+      case 'No Response 👻': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  // Determine which date to show based on status
+  const getDateText = () => {
+    if (status === 'Saved' && createdAt) {
+      return `Saved on ${formatDate(createdAt)}`;
+    } else if (appliedDate) {
+      return `Applied ${formatDate(appliedDate)}`;
+    } else if (createdAt) {
+      return `Created ${formatDate(createdAt)}`;
+    }
+    return '';
+  };
+  
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }).format(date);
+    } catch (e) {
+      return dateString;
     }
   };
   
@@ -80,10 +110,12 @@ export default function ApplicationCard({
             </div>
           )}
           
-          <div className="flex items-center text-xs text-gray-500">
-            <CalendarClock className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
-            <span>Applied {appliedDate}</span>
-          </div>
+          {getDateText() && (
+            <div className="flex items-center text-xs text-gray-500">
+              <CalendarClock className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+              <span>{getDateText()}</span>
+            </div>
+          )}
           
           {salary && (
             <div className="flex items-center text-xs text-gray-500">

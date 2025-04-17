@@ -3,14 +3,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, X, Star } from 'lucide-react';
+import { Search, X, Star, FolderOpen } from 'lucide-react';
 
 interface CompanySearchBarProps {
   initialQuery?: string;
   initialTargetOnly?: boolean;
 }
 
-export default function CompanySearchBar({ initialQuery = '', initialTargetOnly = false }: CompanySearchBarProps) {
+export default function CompanySearchBar({ initialQuery = '', initialTargetOnly = true }: CompanySearchBarProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [targetOnly, setTargetOnly] = useState(initialTargetOnly);
@@ -33,9 +33,8 @@ export default function CompanySearchBar({ initialQuery = '', initialTargetOnly 
       params.set('query', debouncedQuery);
     }
     
-    if (targetOnly) {
-      params.set('targetOnly', 'true');
-    }
+    // Always include targetOnly parameter in URL
+    params.set('targetOnly', targetOnly.toString());
     
     const queryString = params.toString();
     router.push(`/target-companies${queryString ? `?${queryString}` : ''}`);
@@ -66,17 +65,31 @@ export default function CompanySearchBar({ initialQuery = '', initialTargetOnly 
         )}
       </div>
       
-      <button
-        onClick={() => setTargetOnly(!targetOnly)}
-        className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium ${
-          targetOnly 
-            ? 'bg-purple-100 text-purple-800 border-purple-200' 
-            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-        }`}
-      >
-        <Star className={`mr-2 h-4 w-4 ${targetOnly ? 'fill-purple-500 text-purple-500' : ''}`} />
-        {targetOnly ? 'Target Companies' : 'All Companies'}
-      </button>
+      <div className="flex rounded-full p-1 bg-gray-100">
+        <button
+          onClick={() => setTargetOnly(true)}
+          className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            targetOnly 
+              ? 'bg-purple-600 text-white shadow-sm' 
+              : 'text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <Star className={`mr-2 h-4 w-4 ${targetOnly ? 'text-white' : ''}`} />
+          Target Only
+        </button>
+        
+        <button
+          onClick={() => setTargetOnly(false)}
+          className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            !targetOnly 
+              ? 'bg-purple-600 text-white shadow-sm' 
+              : 'text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <FolderOpen className={`mr-2 h-4 w-4 ${!targetOnly ? 'text-white' : ''}`} />
+          All Companies
+        </button>
+      </div>
     </div>
   );
 }

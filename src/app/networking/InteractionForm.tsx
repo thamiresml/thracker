@@ -8,6 +8,7 @@ import { X, Calendar, User, MessageSquare, AlertCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { INTERACTION_TYPES } from '@/types/networking';
 
+
 interface Contact {
   id: number;
   name: string;

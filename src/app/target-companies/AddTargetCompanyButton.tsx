@@ -21,7 +21,8 @@ export default function AddTargetCompanyButton() {
       
       {isModalOpen && (
         <CompanyForm 
-          onClose={() => setIsModalOpen(false)} 
+          onClose={() => setIsModalOpen(false)}
+          initialData={{ is_target: true }}
         />
       )}
     </>

@@ -11,9 +11,10 @@ import ContactFormWrapper from './ContactFormWrapper';
 export const dynamic = 'force-dynamic';
 
 export default async function AddContactPage(props: {
-  searchParams: Promise<{ companyId?: string }>;
+  searchParams: Promise<{ companyId?: string, returnUrl?: string }>;
 }) {
-  const { companyId } = await props.searchParams;
+  const params = await props.searchParams;
+  const { companyId, returnUrl } = params;
 
   const supabase = await createClient();
 
@@ -28,16 +29,19 @@ export default async function AddContactPage(props: {
 
   // Get preselected company ID if provided
   const preselectedCompanyId = companyId ? parseInt(companyId) : undefined;
+  
+  // Get return URL or default to networking page
+  const navigateBackUrl = returnUrl || '/networking';
 
   return (
     <DashboardLayout>
       <div className="flex items-center space-x-2 mb-6">
         <Link
-          href="/networking"
+          href={navigateBackUrl}
           className="text-indigo-600 hover:text-indigo-800 flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
-          <span>Back to Contacts</span>
+          <span>Back</span>
         </Link>
       </div>
 
@@ -45,7 +49,7 @@ export default async function AddContactPage(props: {
 
       <div className="mt-4">
         <ContactFormWrapper
-          returnUrl="/networking"
+          returnUrl={navigateBackUrl}
           preselectedCompanyId={preselectedCompanyId}
         />
       </div>

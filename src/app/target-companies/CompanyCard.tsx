@@ -2,10 +2,27 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Briefcase, Users, Edit, Star, Trash2 } from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import { createClient } from '@/utils/supabase/client';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
+
+// Helper component to add current path as returnUrl
+function ReturnUrlLink({ href, children, className }: { href: string, children: React.ReactNode, className?: string}) {
+  const pathname = usePathname();
+  
+  // Add the current path as the returnUrl
+  const hrefWithReturn = href.includes('?') 
+    ? `${href}&returnUrl=${encodeURIComponent(pathname)}` 
+    : `${href}?returnUrl=${encodeURIComponent(pathname)}`;
+  
+  return (
+    <Link href={hrefWithReturn} className={className}>
+      {children}
+    </Link>
+  );
+}
 
 interface CompanyCardProps {
   company: {
@@ -148,29 +165,46 @@ export default function CompanyCard({ company, applications, interactions, conta
   
   return (
     <>
-      <div className={`bg-white rounded-lg shadow-sm overflow-hidden ${
-        isTargetCompany ? 'border-l-4 border-indigo-500' : ''
+      <div className={`bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200 ${
+        isTargetCompany 
+          ? 'border-l-4 border-purple-500 ring-1 ring-purple-100 hover:shadow-md' 
+          : 'hover:shadow-sm'
       }`}>
         <div className="p-5">
           <div className="flex justify-between items-start">
             <div className="flex items-center">
               <CompanyLogo logo={company.logo} name={company.name} />
-              <h3 className="text-lg font-medium text-gray-900 ml-3">{company.name}</h3>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">
+                  <Link 
+                    href={`/target-companies/${company.id}`}
+                    className="hover:text-purple-600"
+                  >
+                    {company.name}
+                  </Link>
+                  {isTargetCompany && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                      <Star className="h-3 w-3 mr-1 fill-purple-500 text-purple-500" />
+                      Target
+                    </span>
+                  )}
+                </h3>
+              </div>
             </div>
             <div className="flex space-x-2">
               <button 
                 onClick={toggleTargetStatus}
                 disabled={isLoading}
-                className={`text-gray-400 hover:${isTargetCompany ? 'text-gray-600' : 'text-indigo-500'} p-1`}
+                className={`text-gray-400 hover:${isTargetCompany ? 'text-gray-600' : 'text-purple-500'} p-1`}
                 title={isTargetCompany ? "Remove from targets" : "Add to targets"}
               >
                 {isTargetCompany ? (
-                  <Star className="h-5 w-5 fill-indigo-500 text-indigo-500" />
+                  <Star className="h-5 w-5 fill-purple-500 text-purple-500" />
                 ) : (
                   <Star className="h-5 w-5" />
                 )}
               </button>
-              <Link href={`/target-companies/${company.id}/edit`} className="text-gray-400 hover:text-indigo-500 p-1">
+              <Link href={`/target-companies/${company.id}/edit`} className="text-gray-400 hover:text-purple-500 p-1">
                 <Edit className="h-5 w-5" />
               </Link>
               <button
@@ -195,12 +229,12 @@ export default function CompanyCard({ company, applications, interactions, conta
                 <Briefcase className="h-4 w-4 mr-1" />
                 <span>Applications</span>
               </div>
-              <Link 
+              <ReturnUrlLink 
                 href={`/applications/new?companyId=${company.id}`}
-                className="text-xs text-indigo-600 hover:text-indigo-800"
+                className="text-xs text-purple-600 hover:text-purple-800"
               >
                 + Add
-              </Link>
+              </ReturnUrlLink>
             </div>
             
             <div className="mt-2">
@@ -232,12 +266,12 @@ export default function CompanyCard({ company, applications, interactions, conta
                 <Users className="h-4 w-4 mr-1" />
                 <span>Networking</span>
               </div>
-              <Link 
+              <ReturnUrlLink 
                 href={`/networking/add-contact?companyId=${company.id}`}
-                className="text-xs text-indigo-600 hover:text-indigo-800"
+                className="text-xs text-purple-600 hover:text-purple-800"
               >
                 + Add Contact
-              </Link>
+              </ReturnUrlLink>
             </div>
             
             <div className="mt-2">
@@ -248,23 +282,23 @@ export default function CompanyCard({ company, applications, interactions, conta
                       <div key={idx} className="text-sm mb-1 text-gray-600">
                         <div className="flex justify-between">
                           <div>
-                            <Link 
+                            <ReturnUrlLink 
                               href={`/networking/contacts/${contact.id}`}
-                              className="font-medium hover:text-indigo-600"
+                              className="font-medium hover:text-purple-600"
                             >
                               {contact.name}
-                            </Link>
+                            </ReturnUrlLink>
                             {contact.role && <span className="text-gray-500"> ({contact.role})</span>}
                           </div>
                           {contact.hasInteraction ? (
                             <span className="text-gray-500 text-xs">{formatDate(contact.lastDate)}</span>
                           ) : (
-                            <Link 
+                            <ReturnUrlLink 
                               href={`/networking/contacts/${contact.id}/add-interaction`}
-                              className="text-indigo-600 hover:text-indigo-800 text-xs"
+                              className="text-purple-600 hover:text-purple-800 text-xs"
                             >
                               Add Interaction
-                            </Link>
+                            </ReturnUrlLink>
                           )}
                         </div>
                       </div>

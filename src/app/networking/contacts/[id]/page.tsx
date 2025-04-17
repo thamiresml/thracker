@@ -1,3 +1,5 @@
+// src/app/networking/contacts/[id]/page.tsx
+
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -19,8 +21,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function ContactDetailPage(props: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ returnUrl?: string }>;
 }) {
   const { id } = await props.params;
+  const { returnUrl } = await props.searchParams;
 
   const supabase = await createClient();
 
@@ -60,15 +64,18 @@ export default async function ContactDetailPage(props: {
     .eq('user_id', user.id)
     .order('interaction_date', { ascending: false });
 
+  // Get return URL or default to networking page
+  const navigateBackUrl = returnUrl || '/networking';
+
   return (
     <DashboardLayout>
       <div className="flex items-center space-x-2 mb-6">
         <Link
-          href="/networking"
+          href={navigateBackUrl}
           className="text-indigo-600 hover:text-indigo-800 flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
-          <span>Back to Contacts</span>
+          <span>Back</span>
         </Link>
       </div>
 
@@ -102,14 +109,18 @@ export default async function ContactDetailPage(props: {
 
             <div className="flex items-start space-x-2">
               <Link
-                href={`/networking/contacts/${contact.id}/edit`}
+                href={`/networking/contacts/${contact.id}/edit?returnUrl=${encodeURIComponent(
+                  returnUrl ? returnUrl : `/networking/contacts/${contact.id}`
+                )}`}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 <Edit className="h-4 w-4 mr-2 text-gray-500" />
                 Edit Contact
               </Link>
               <Link
-                href={`/networking/contacts/${contact.id}/add-interaction`}
+                href={`/networking/contacts/${contact.id}/add-interaction?returnUrl=${encodeURIComponent(
+                  returnUrl ? returnUrl : `/networking/contacts/${contact.id}`
+                )}`}
                 className="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
                 <MessageSquare className="h-4 w-4 mr-2" />
@@ -160,7 +171,9 @@ export default async function ContactDetailPage(props: {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-medium text-gray-900">Interactions History</h2>
             <Link
-              href={`/networking/contacts/${contact.id}/add-interaction`}
+              href={`/networking/contacts/${contact.id}/add-interaction?returnUrl=${encodeURIComponent(
+                returnUrl ? returnUrl : `/networking/contacts/${contact.id}`
+              )}`}
               className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
             >
               <MessageSquare className="h-4 w-4 mr-1" />
@@ -198,7 +211,9 @@ export default async function ContactDetailPage(props: {
                     </div>
                     <div>
                       <Link
-                        href={`/networking/interactions/${interaction.id}/edit`}
+                        href={`/networking/interactions/${interaction.id}/edit?returnUrl=${encodeURIComponent(
+                          returnUrl ? returnUrl : `/networking/contacts/${contact.id}`
+                        )}`}
                         className="text-gray-400 hover:text-indigo-600"
                       >
                         <Edit className="h-4 w-4" />
@@ -220,7 +235,9 @@ export default async function ContactDetailPage(props: {
               <p className="mt-1 text-sm text-gray-500">Get started by adding your first interaction with this contact.</p>
               <div className="mt-6">
                 <Link
-                  href={`/networking/contacts/${contact.id}/add-interaction`}
+                  href={`/networking/contacts/${contact.id}/add-interaction?returnUrl=${encodeURIComponent(
+                    returnUrl ? returnUrl : `/networking/contacts/${contact.id}`
+                  )}`}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />

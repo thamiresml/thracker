@@ -30,8 +30,8 @@ export default async function CompaniesPage({
   }
 
   // Get authenticated user data using getUser (more secure)
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
     redirect('/auth/login');
   }
   
@@ -40,7 +40,8 @@ export default async function CompaniesPage({
   
   // Get search parameters from the awaited params object
   const searchQuery = params.query || '';
-  const targetOnly = params.targetOnly === 'true';
+  // Default to 'true' if targetOnly is not provided
+  const targetOnly = params.targetOnly !== 'false';
   
   // Build query
   let companiesQuery = supabase
@@ -126,10 +127,13 @@ export default async function CompaniesPage({
       ) : companies.length === 0 ? (
         <EmptyState
           icon={<Star className="w-12 h-12" />}
-          title="No companies found"
+          title={targetOnly ? "No target companies found" : "No companies found"}
           description={searchQuery 
             ? "Try adjusting your search criteria" 
-            : "Add companies you're interested in to keep track of opportunities"}
+            : targetOnly
+              ? "Add target companies you're interested in to keep track of opportunities"
+              : "Add companies you're interested in to keep track of opportunities"
+          }
           action={
             <Link
               href="/target-companies/new"
