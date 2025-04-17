@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Briefcase, Star, Users, Calendar, LogOut, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Star, Users, LogOut, CheckSquare } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();

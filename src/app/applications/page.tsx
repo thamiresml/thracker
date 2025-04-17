@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+//import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import AddApplicationButton from '@/app/applications/AddApplicationsButton';
 import ApplicationsTable from '@/app/applications/ApplicationsTable';
 import { createClient } from '@/utils/supabase/server';
