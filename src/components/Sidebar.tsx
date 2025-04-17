@@ -81,7 +81,7 @@ export default function Sidebar() {
           <span>Networking</span>
         </Link>
         
-        <Link 
+        {/* <Link 
           href="/schedule"
           className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md ${
             isActive('/schedule') 
@@ -91,7 +91,7 @@ export default function Sidebar() {
         >
           <Calendar className={`h-5 w-5 mr-3 ${isActive('/schedule') ? 'text-purple-500' : 'text-gray-400'}`} />
           <span>Schedule</span>
-        </Link>
+        </Link> */}
         
         <div className="flex-grow"></div>
         

@@ -1,3 +1,5 @@
+// src/app/applications/page.tsx
+
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -10,8 +12,30 @@ import EmptyStateWithAction from './EmptyStateWithAction';
 import ApplicationsFunnel from './ApplicationsFunnel';
 import ApplicationsFilter from './ApplicationsFilter';
 import { NavigationEvents } from '@/components/NavigationEvents';
+import { PostgrestError } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
+
+// Define the Application type
+type Company = {
+  id: number;
+  name: string;
+  logo?: string;
+};
+
+type Application = {
+  id: number;
+  position: string;
+  status: string;
+  applied_date: string;
+  company_id: number;
+  job_posting_url?: string;
+  location?: string;
+  notes?: string;
+  salary?: string;
+  user_id: string;
+  companies?: Company;
+};
 
 export default async function ApplicationsPage({
   searchParams,
@@ -40,38 +64,108 @@ export default async function ApplicationsPage({
   const sortBy = awaitedParams.sortBy ?? 'applied_date';
   const sortOrder = awaitedParams.sortOrder ?? 'desc';
 
-  // ✅ Fetch filtered applications
-  let applicationsQuery = supabase
-    .from('applications')
-    .select(
-      `
-      *,
-      companies (id, name, logo)
-    `
-    )
-    .eq('user_id', user?.id);
-
-  if (query.length > 0) {
-    applicationsQuery = applicationsQuery.or(
-      `position.ilike.%${query}%,companies.name.ilike.%${query}%`
-    );
-  }
-
-  if (status && status !== 'All') {
-    applicationsQuery = applicationsQuery.eq('status', status);
-  }
-
+  // Define valid sort columns and final sort column
   const validSortColumns = ['applied_date', 'position', 'status', 'companies.name'];
   const finalSortBy = validSortColumns.includes(sortBy) ? sortBy : 'applied_date';
 
-  applicationsQuery = applicationsQuery.order(finalSortBy, {
-    ascending: sortOrder === 'asc',
-  });
+  // Initialize applications with an empty array (not null)
+  let applications: Application[] = [];
+  let error: PostgrestError | null = null;
+  
+  if (query && query.length > 0) {
+    // For search queries, we need to handle the text search differently
+    // First, get applications matching position
+    const positionQuery = supabase
+      .from('applications')
+      .select(`
+        *,
+        companies (id, name, logo)
+      `)
+      .eq('user_id', user?.id)
+      .ilike('position', `%${query}%`);
+    
+    if (status && status !== 'All') {
+      positionQuery.eq('status', status);
+    }
+    
+    positionQuery.order(finalSortBy, {
+      ascending: sortOrder === 'asc',
+    });
+    
+    const { data: positionResults, error: positionError } = await positionQuery;
+    
+    // Then, get applications with matching company names
+    const companyQuery = supabase
+      .from('applications')
+      .select(`
+        *,
+        companies!inner (id, name, logo)
+      `)
+      .eq('user_id', user?.id);
+      
+    // Since we're using inner join, we can filter on companies.name
+    companyQuery.ilike('companies.name', `%${query}%`);
+    
+    if (status && status !== 'All') {
+      companyQuery.eq('status', status);
+    }
+    
+    companyQuery.order(finalSortBy, {
+      ascending: sortOrder === 'asc',
+    });
+    
+    const { data: companyResults, error: companyError } = await companyQuery;
+    
+    // Combine results and remove duplicates
+    const combinedResults: Application[] = [];
+    const seenIds = new Set<number>();
+    
+    // Add position search results
+    if (positionResults) {
+      for (const app of positionResults) {
+        if (app && 'id' in app) {
+          seenIds.add(app.id);
+          combinedResults.push(app as Application);
+        }
+      }
+    }
+    
+    // Add company search results (if not already included)
+    if (companyResults) {
+      for (const app of companyResults) {
+        if (app && 'id' in app && !seenIds.has(app.id)) {
+          combinedResults.push(app as Application);
+        }
+      }
+    }
+    
+    applications = combinedResults;
+    
+    // Set error if either query had an error
+    error = positionError || companyError;
+  } else {
+    // If no search query, use the normal query approach
+    let applicationsQuery = supabase
+      .from('applications')
+      .select(
+        `
+        *,
+        companies (id, name, logo)
+      `
+      )
+      .eq('user_id', user?.id);
 
-  const { data: applications, error } = await applicationsQuery;
+    if (status && status !== 'All') {
+      applicationsQuery = applicationsQuery.eq('status', status);
+    }
 
-  if (error) {
-    console.error('Error fetching applications:', error);
+    applicationsQuery = applicationsQuery.order(finalSortBy, {
+      ascending: sortOrder === 'asc',
+    });
+
+    const result = await applicationsQuery;
+    applications = (result.data || []) as Application[];
+    error = result.error;
   }
 
   // ✅ Get all applications for funnel stats (unfiltered)
@@ -96,13 +190,19 @@ export default async function ApplicationsPage({
     'No Response 👻',
   ];
 
-  const uniqueStatuses = new Set();
-  statusesData?.forEach((item) => {
-    if (item.status) uniqueStatuses.add(item.status);
-  });
+  const uniqueStatuses = new Set<string>();
+  if (statusesData) {
+    statusesData.forEach((item) => {
+      if (item.status) uniqueStatuses.add(item.status);
+    });
+  }
 
   defaultStatuses.forEach((status) => uniqueStatuses.add(status));
-  const availableStatuses = Array.from(uniqueStatuses).sort() as string[];
+  const availableStatuses = Array.from(uniqueStatuses).sort();
+
+  if (error) {
+    console.error('Error fetching applications:', error);
+  }
 
   return (
     <DashboardLayout>
@@ -113,9 +213,7 @@ export default async function ApplicationsPage({
         <NavigationEvents />
       </Suspense>
 
-      {!applications ? (
-        <LoadingSpinner />
-      ) : applications.length === 0 && !query && !status ? (
+      {applications.length === 0 && !query && !status ? (
         <EmptyStateWithAction />
       ) : (
         <div className="space-y-6">
@@ -137,7 +235,7 @@ export default async function ApplicationsPage({
           {/* Table */}
           <div className="bg-white shadow-sm rounded-lg overflow-hidden">
             <ApplicationsTable
-              applications={applications || []}
+              applications={applications}
               sortBy={sortBy}
               sortOrder={sortOrder}
             />

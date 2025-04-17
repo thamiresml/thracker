@@ -1,3 +1,5 @@
+// src/app/applications/ApplicationsFilter.tsx
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -28,7 +30,7 @@ export default function ApplicationsFilter({
   const [sortOrder, setSortOrder] = useState(currentSortOrder || 'desc');
   const [debouncedQuery, setDebouncedQuery] = useState(currentQuery);
 
-  // ✅ Track hydration so we don’t trigger a loop
+  // ✅ Track hydration so we don't trigger a loop
   const hasHydrated = useRef(false);
 
   // Debounce search
