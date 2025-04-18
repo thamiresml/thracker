@@ -1,11 +1,11 @@
+// src/app/networking/contacts/[id]/InteractionItem.tsx
+
 'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Calendar, Edit, Trash2 } from 'lucide-react';
-import { createClient } from '@/utils/supabase/client';
-import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
+import { Calendar, Edit } from 'lucide-react';
+import DeleteInteractionButton from '@/app/networking/DeleteInteractionButton';
 
 interface InteractionItemProps {
   interaction: {
@@ -24,38 +24,6 @@ export default function InteractionItem({
   returnUrl,
   onDelete 
 }: InteractionItemProps) {
-  const router = useRouter();
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  
-  const supabase = createClient();
-  
-  const handleDelete = async () => {
-    try {
-      setIsDeleting(true);
-      
-      const { error } = await supabase
-        .from('interactions')
-        .delete()
-        .eq('id', interaction.id);
-        
-      if (error) throw error;
-      
-      // Call the onDelete callback or refresh the page
-      if (onDelete) {
-        onDelete();
-      } else {
-        router.refresh();
-      }
-    } catch (error) {
-      console.error('Error deleting interaction:', error);
-      alert('Failed to delete interaction. Please try again.');
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteModal(false);
-    }
-  };
-  
   // Format date for display
   const formatDate = (dateString: string) => {
     try {
@@ -84,58 +52,51 @@ export default function InteractionItem({
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Handler for when an interaction is deleted
+  const handleInteractionDeleted = () => {
+    if (onDelete) {
+      onDelete();
+    }
+  };
   
   return (
-    <>
-      <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-        <div className="flex justify-between">
-          <div>
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
-              {interaction.interaction_type}
-            </span>
-            <p className="text-sm text-gray-500 mt-1">
+    <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+      <div className="flex justify-between">
+        <div>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
+            {interaction.interaction_type}
+          </span>
+          <p className="text-sm text-gray-500 mt-1">
+            <Calendar className="inline-block h-4 w-4 mr-1" />
+            {formatDate(interaction.interaction_date)}
+          </p>
+          {interaction.follow_up_date && (
+            <p className="text-sm text-indigo-600 mt-1">
               <Calendar className="inline-block h-4 w-4 mr-1" />
-              {formatDate(interaction.interaction_date)}
+              Follow-up scheduled: {formatDate(interaction.follow_up_date)}
             </p>
-            {interaction.follow_up_date && (
-              <p className="text-sm text-indigo-600 mt-1">
-                <Calendar className="inline-block h-4 w-4 mr-1" />
-                Follow-up scheduled: {formatDate(interaction.follow_up_date)}
-              </p>
-            )}
-          </div>
-          <div className="flex space-x-2">
-            <Link
-              href={`/networking/interactions/${interaction.id}/edit${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`}
-              className="text-gray-400 hover:text-indigo-600 p-1"
-            >
-              <Edit className="h-4 w-4" />
-            </Link>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="text-gray-400 hover:text-red-600 p-1"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+          )}
         </div>
-        {interaction.notes && (
-          <div className="mt-2 text-sm text-gray-600">
-            {interaction.notes}
-          </div>
-        )}
+        <div className="flex space-x-2">
+          <Link
+            href={`/networking/interactions/${interaction.id}/edit${returnUrl ? `?returnUrl=${encodeURIComponent(returnUrl)}` : ''}`}
+            className="text-gray-400 hover:text-indigo-600 p-1"
+          >
+            <Edit className="h-4 w-4" />
+          </Link>
+          <DeleteInteractionButton
+            interactionId={interaction.id}
+            interactionType={interaction.interaction_type}
+            onDelete={handleInteractionDeleted}
+          />
+        </div>
       </div>
-      
-      {showDeleteModal && (
-        <DeleteConfirmationModal
-          title="Delete Interaction"
-          message="Are you sure you want to delete this interaction? This action cannot be undone."
-          confirmButtonText="Delete"
-          onConfirm={handleDelete}
-          onCancel={() => setShowDeleteModal(false)}
-          isLoading={isDeleting}
-        />
+      {interaction.notes && (
+        <div className="mt-2 text-sm text-gray-600">
+          {interaction.notes}
+        </div>
       )}
-    </>
+    </div>
   );
 }

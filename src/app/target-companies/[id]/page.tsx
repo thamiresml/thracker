@@ -1,10 +1,16 @@
 // src/app/target-companies/[id]/page.tsx
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Star, Briefcase, Users, Building, Globe, Edit, MessageSquare, Calendar, Mail, Phone } from 'lucide-react';
+import { 
+  ArrowLeft, Star, Briefcase, Users, Building, Globe, Edit, 
+  MessageSquare, Calendar, Mail, Phone, ExternalLink, 
+  MapPin, DollarSign, CheckCircle, Clock, Trash2 
+} from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { createClient } from '@/utils/supabase/server';
 import CompanyLogo from '@/components/CompanyLogo';
+import ContactSection from './ContactSection';
+import RecentInteractionsSection from './RecentInteractionsSection';
 import { format } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -78,16 +84,28 @@ export default async function CompanyDetailPage({
     interactions: interactions?.length || 0,
     latestInteraction: interactions?.length > 0 ? formatDate(interactions[0].interaction_date) : 'None'
   };
+
+  // Get active applications (those in progress)
+  const activeApplications = applications?.filter(
+    app => !['Saved', 'Not Selected', 'No Response 👻'].includes(app.status)
+  ) || [];
   
   return (
     <DashboardLayout>
-      <div className="flex items-center space-x-2 mb-6">
+      <div className="flex items-center justify-between mb-6">
         <Link 
           href="/target-companies" 
           className="text-purple-600 hover:text-purple-800 flex items-center"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           <span>Back to Companies</span>
+        </Link>
+        <Link
+          href={`/target-companies/${company.id}/edit`}
+          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+        >
+          <Edit className="mr-2 h-4 w-4 text-gray-500" />
+          Edit Company
         </Link>
       </div>
       
@@ -131,15 +149,6 @@ export default async function CompanyDetailPage({
               )}
             </div>
           </div>
-          <div className="mt-5 flex justify-center sm:mt-0">
-            <Link
-              href={`/target-companies/${company.id}/edit`}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-            >
-              <Edit className="mr-2 h-4 w-4 text-gray-500" />
-              Edit Company
-            </Link>
-          </div>
         </div>
         
         {/* Company Description */}
@@ -176,7 +185,7 @@ export default async function CompanyDetailPage({
           
           <div className="px-4 py-5 bg-white shadow rounded-lg overflow-hidden sm:p-6">
             <dt className="text-sm font-medium text-gray-500 truncate flex items-center">
-              <Briefcase className="h-5 w-5 mr-2 text-blue-500" />
+              <CheckCircle className="h-5 w-5 mr-2 text-blue-500" />
               Active Candidacies
             </dt>
             <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.activeCandidacies}</dd>
@@ -224,7 +233,7 @@ export default async function CompanyDetailPage({
               <div className="divide-y divide-gray-200">
                 {applications.map((app) => (
                   <div key={app.id} className="py-4">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-start">
                       <Link
                         href={`/applications/${app.id}`}
                         className="text-lg font-medium text-gray-900 hover:text-purple-600"
@@ -237,17 +246,27 @@ export default async function CompanyDetailPage({
                     </div>
                     
                     <div className="mt-2 text-sm text-gray-500 grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="font-medium">Date: </span>
-                        {app.status === 'Saved' 
-                          ? `Saved on ${formatDate(app.created_at)}` 
-                          : `Applied on ${formatDate(app.applied_date)}`
-                        }
+                      <div className="flex items-center">
+                        <Calendar className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+                        <span>
+                          {app.status === 'Saved' 
+                            ? `Saved on ${formatDate(app.created_at)}` 
+                            : `Applied on ${formatDate(app.applied_date)}`
+                          }
+                        </span>
                       </div>
+                      
                       {app.location && (
-                        <div>
-                          <span className="font-medium">Location: </span>
-                          {app.location}
+                        <div className="flex items-center">
+                          <MapPin className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+                          <span>{app.location}</span>
+                        </div>
+                      )}
+                      
+                      {app.salary && (
+                        <div className="flex items-center col-span-2">
+                          <DollarSign className="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
+                          <span>{app.salary}</span>
                         </div>
                       )}
                     </div>
@@ -261,7 +280,18 @@ export default async function CompanyDetailPage({
                       </div>
                     )}
                     
-                    <div className="mt-3 flex justify-end">
+                    <div className="mt-3 flex justify-end space-x-2">
+                      {app.job_posting_url && (
+                        <a 
+                          href={app.job_posting_url}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-gray-500 hover:text-purple-600 flex items-center"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Job Posting
+                        </a>
+                      )}
                       <Link
                         href={`/applications/${app.id}`}
                         className="text-xs text-purple-600 hover:text-purple-800"
@@ -290,6 +320,31 @@ export default async function CompanyDetailPage({
               </div>
             )}
           </div>
+          
+          {/* Active Applications Summary */}
+          {activeApplications.length > 0 && (
+            <div className="px-6 py-4 bg-indigo-50 border-t border-indigo-100">
+              <h3 className="text-sm font-medium text-indigo-900 mb-2">Active Applications</h3>
+              <div className="space-y-2">
+                {activeApplications.slice(0, 3).map((app) => (
+                  <div key={`active-${app.id}`} className="flex justify-between items-center bg-white p-2 rounded-md border border-indigo-100 text-sm">
+                    <div className="flex items-center">
+                      <Clock className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
+                      <span className="font-medium">{app.position}</span>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${getStatusClass(app.status)}`}>
+                      {app.status}
+                    </span>
+                  </div>
+                ))}
+                {activeApplications.length > 3 && (
+                  <div className="text-xs text-center text-indigo-600">
+                    +{activeApplications.length - 3} more active applications
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Contacts and Interactions Section */}
@@ -309,103 +364,15 @@ export default async function CompanyDetailPage({
           
           <div className="px-6 py-5">
             {contacts && contacts.length > 0 ? (
-              <div className="space-y-8">
-                {contacts.map((contact) => {
-                  // Filter interactions for this contact
-                  const contactInteractions = interactions.filter(
-                    int => int.contact_id === contact.id
-                  );
-                  
-                  return (
-                    <div key={contact.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <Link
-                            href={`/networking/contacts/${contact.id}?returnUrl=${encodeURIComponent(`/target-companies/${company.id}`)}`}
-                            className="text-lg font-medium text-gray-900 hover:text-indigo-600"
-                          >
-                            {contact.name}
-                          </Link>
-                          {contact.role && (
-                            <p className="text-sm text-gray-600">{contact.role}</p>
-                          )}
-                        </div>
-                        <Link
-                          href={`/networking/contacts/${contact.id}/add-interaction?returnUrl=${encodeURIComponent(`/target-companies/${company.id}`)}`}
-                          className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs rounded text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                          + Interaction
-                        </Link>
-                      </div>
-                      
-                      {/* Contact Details */}
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                        {contact.email && (
-                          <a 
-                            href={`mailto:${contact.email}`} 
-                            className="text-gray-600 hover:text-indigo-600 flex items-center"
-                          >
-                            <Mail className="h-4 w-4 mr-1 text-gray-400" />
-                            {contact.email}
-                          </a>
-                        )}
-                        {contact.phone && (
-                          <a 
-                            href={`tel:${contact.phone}`} 
-                            className="text-gray-600 hover:text-indigo-600 flex items-center"
-                          >
-                            <Phone className="h-4 w-4 mr-1 text-gray-400" />
-                            {contact.phone}
-                          </a>
-                        )}
-                      </div>
-                      
-                      {/* Interactions Section */}
-                      {contactInteractions.length > 0 ? (
-                        <div className="mt-4 pt-3 border-t border-gray-200">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                            <MessageSquare className="h-4 w-4 mr-1 text-indigo-500" />
-                            Recent Interactions
-                          </h4>
-                          <div className="space-y-2">
-                            {contactInteractions.slice(0, 2).map((interaction) => (
-                              <div key={interaction.id} className="bg-gray-50 rounded p-2 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="font-medium">{interaction.interaction_type}</span>
-                                  <span className="text-gray-500 text-xs">
-                                    <Calendar className="inline-block h-3 w-3 mr-1" />
-                                    {formatDate(interaction.interaction_date)}
-                                  </span>
-                                </div>
-                                {interaction.notes && (
-                                  <p className="mt-1 text-gray-600 text-xs line-clamp-2">{interaction.notes}</p>
-                                )}
-                              </div>
-                            ))}
-                            {contactInteractions.length > 2 && (
-                              <Link
-                                href={`/networking/contacts/${contact.id}?returnUrl=${encodeURIComponent(`/target-companies/${company.id}`)}`}
-                                className="text-xs text-indigo-600 hover:text-indigo-800 block text-right"
-                              >
-                                View all {contactInteractions.length} interactions →
-                              </Link>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-4 pt-3 border-t border-gray-200">
-                          <p className="text-sm text-gray-500 italic">No interactions recorded yet</p>
-                          <Link
-                            href={`/networking/contacts/${contact.id}/add-interaction?returnUrl=${encodeURIComponent(`/target-companies/${company.id}`)}`}
-                            className="text-xs text-indigo-600 hover:text-indigo-800"
-                          >
-                            + Add first interaction
-                          </Link>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="space-y-4">
+                {contacts.map((contact) => (
+                  <ContactSection
+                    key={contact.id}
+                    contact={contact}
+                    companyId={company.id}
+                    interactions={interactions}
+                  />
+                ))}
               </div>
             ) : (
               <div className="text-center py-6">
@@ -425,6 +392,15 @@ export default async function CompanyDetailPage({
               </div>
             )}
           </div>
+          
+          {/* Recent Interactions Summary */}
+          {interactions.length > 0 && (
+            <RecentInteractionsSection
+              interactions={interactions}
+              formatRelativeDate={formatRelativeDate}
+              getInteractionTypeClass={getInteractionTypeClass}
+            />
+          )}
         </div>
       </div>
     </DashboardLayout>
@@ -435,6 +411,22 @@ export default async function CompanyDetailPage({
 function formatDate(dateString: string) {
   try {
     return format(new Date(dateString), 'MMM d, yyyy');
+  } catch (error) {
+    return dateString || 'N/A';
+  }
+}
+
+function formatRelativeDate(dateString: string) {
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 3600 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return format(date, 'MMM d');
   } catch (error) {
     return dateString || 'N/A';
   }
@@ -456,6 +448,29 @@ function getStatusClass(status: string) {
       return 'bg-red-100 text-red-800';
     case 'No Response 👻':
       return 'bg-gray-100 text-gray-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
+function getInteractionTypeClass(type: string) {
+  switch (type) {
+    case 'Email':
+      return 'bg-blue-100 text-blue-800';
+    case 'Phone Call':
+      return 'bg-green-100 text-green-800';
+    case 'Video Meeting':
+      return 'bg-purple-100 text-purple-800';
+    case 'In-Person Meeting':
+      return 'bg-orange-100 text-orange-800';
+    case 'Coffee Chat':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'Informational Interview':
+      return 'bg-indigo-100 text-indigo-800';
+    case 'Event/Conference':
+      return 'bg-pink-100 text-pink-800';
+    case 'LinkedIn Message':
+      return 'bg-blue-100 text-blue-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }

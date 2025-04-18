@@ -1,13 +1,41 @@
+// src/app/networking/contacts/[id]/ContactPageClient.tsx
+
 'use client';
 
 import Link from 'next/link';
 import { Edit, MessageSquare, GraduationCap, Mail, Phone, Linkedin } from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import ContactInteractions from './ContactInteractions';
+import DeleteContactButton from '@/app/networking/DeleteContactButton';
+
+interface Contact {
+  id: number;
+  name: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  linkedin?: string;
+  is_alumni: boolean;
+  notes?: string;
+  status: string;
+  company?: {
+    id: number;
+    name: string;
+    logo?: string;
+  };
+}
+
+interface Interaction {
+  id: number;
+  interaction_type: string;
+  interaction_date: string;
+  notes?: string;
+  follow_up_date?: string | null;
+}
 
 interface ContactPageClientProps {
-  contact: any;
-  interactions: any[];
+  contact: Contact;
+  interactions: Interaction[];
   returnUrl?: string;
 }
 
@@ -60,6 +88,10 @@ export default function ContactPageClient({
               <MessageSquare className="h-4 w-4 mr-2" />
               Add Interaction
             </Link>
+            <DeleteContactButton 
+              contactId={contact.id} 
+              contactName={contact.name}
+            />
           </div>
         </div>
 

@@ -1,3 +1,5 @@
+// src/app/networking/contacts/[id]/ContactInteractions.tsx
+
 'use client';
 
 import { useState } from 'react';
@@ -5,8 +7,16 @@ import Link from 'next/link';
 import { MessageSquare } from 'lucide-react';
 import InteractionItem from './InteractionItem';
 
+interface Interaction {
+  id: number;
+  interaction_type: string;
+  interaction_date: string;
+  notes?: string;
+  follow_up_date?: string | null;
+}
+
 interface ContactInteractionsProps {
-  interactions: Array<any>;
+  interactions: Interaction[];
   contactId: number;
   returnUrl?: string;
 }
@@ -16,7 +26,7 @@ export default function ContactInteractions({
   contactId,
   returnUrl
 }: ContactInteractionsProps) {
-  const [interactions, setInteractions] = useState(initialInteractions);
+  const [interactions, setInteractions] = useState<Interaction[]>(initialInteractions);
   
   // Handle interaction deletion
   const handleDeleteInteraction = (deletedId: number) => {
