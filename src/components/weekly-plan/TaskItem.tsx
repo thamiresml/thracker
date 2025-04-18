@@ -69,12 +69,12 @@ export function TaskItem({
           ) : (
             <GripHorizontal className="h-4 w-4 mr-2 text-gray-400 cursor-grab" />
           )}
-          <h4 className={`text-sm font-medium ${isDone ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+          <h4 className={`text-sm font-medium ${isDone ? 'text-gray-500 line-through' : 'text-gray-900'} break-words max-w-[240px]`}>
             {task.title}
           </h4>
         </div>
         {showActions && !selectionMode && (
-          <div className="flex space-x-1">
+          <div className="flex space-x-1 flex-shrink-0 ml-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();

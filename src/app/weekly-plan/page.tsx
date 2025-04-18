@@ -53,17 +53,17 @@ export default async function WeeklyPlanPage({
     }
   }
 
-  // Calculate week boundaries
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 }); // End on Sunday
+  // Calculate week boundaries - ensuring we start from Monday
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
   
   // Format dates for display
   const weekDisplayRange = `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
   
   // Generate dates for prev/next week links
-  const prevWeek = format(subWeeks(currentDate, 1), 'yyyy-MM-dd');
-  const nextWeek = format(addWeeks(currentDate, 1), 'yyyy-MM-dd');
-  const thisWeek = format(new Date(), 'yyyy-MM-dd');
+  const prevWeek = format(subWeeks(weekStart, 1), 'yyyy-MM-dd');
+  const nextWeek = format(addWeeks(weekStart, 1), 'yyyy-MM-dd');
+  const thisWeek = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
   return (
     <DashboardLayout>

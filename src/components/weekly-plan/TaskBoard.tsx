@@ -3,7 +3,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { format, addWeeks, addDays } from 'date-fns';
+import { format, startOfWeek} from 'date-fns';
 import { 
   CheckCircle, Clock, CheckSquare, Plus, 
   Calendar, CheckCheck,
@@ -51,7 +51,9 @@ interface TaskBoardProps {
 
 export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   const supabase = createClient();
-  const startDateFormatted = format(startDate, 'yyyy-MM-dd');
+  // Ensure startDate is a Monday by calculating startOfWeek with weekStartsOn=1
+  const adjustedStartDate = startOfWeek(startDate, { weekStartsOn: 1 });
+  const startDateFormatted = format(adjustedStartDate, 'yyyy-MM-dd');
 
   // Task states
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -85,6 +87,8 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
     try {
       setIsLoading(true);
       setError(null);
+
+      console.log("Fetching tasks for week starting:", startDateFormatted);
 
       // Query tasks for the specific week
       const { data, error } = await supabase
@@ -235,7 +239,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
     const options = [];
     
     // Previous week
-    const prevWeek = addDays(startDate, -7);
+    const prevWeek = startOfWeek(new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000), { weekStartsOn: 1 });
     options.push({
       date: prevWeek,
       label: `Previous week (${format(prevWeek, 'MMM d')})`
@@ -243,7 +247,8 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
     
     // Next 4 weeks
     for (let i = 1; i <= 4; i++) {
-      const weekDate = addWeeks(startDate, i);
+      const weekTimestamp = startDate.getTime() + (i * 7 * 24 * 60 * 60 * 1000);
+      const weekDate = startOfWeek(new Date(weekTimestamp), { weekStartsOn: 1 });
       options.push({
         date: weekDate,
         label: `${i === 1 ? 'Next' : `+${i}`} week (${format(weekDate, 'MMM d')})`
@@ -400,7 +405,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(startDate, 'MMM d, yyyy')}</h2>
+        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(adjustedStartDate, 'MMM d, yyyy')}</h2>
         <div className="flex space-x-2">
           <button
             onClick={toggleSelectionMode}
