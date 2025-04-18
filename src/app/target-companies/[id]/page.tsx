@@ -3,14 +3,13 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, Star, Briefcase, Users, Building, Globe, Edit, 
-  MessageSquare, Calendar, Mail, Phone, ExternalLink, 
-  MapPin, DollarSign, CheckCircle, Clock, Trash2 
+  MessageSquare, Calendar, ExternalLink, 
+  MapPin, DollarSign, CheckCircle, Clock
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { createClient } from '@/utils/supabase/server';
 import CompanyLogo from '@/components/CompanyLogo';
 import ContactSection from './ContactSection';
-import RecentInteractionsSection from './RecentInteractionsSection';
 import { format } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -320,31 +319,6 @@ export default async function CompanyDetailPage({
               </div>
             )}
           </div>
-          
-          {/* Active Applications Summary */}
-          {activeApplications.length > 0 && (
-            <div className="px-6 py-4 bg-indigo-50 border-t border-indigo-100">
-              <h3 className="text-sm font-medium text-indigo-900 mb-2">Active Applications</h3>
-              <div className="space-y-2">
-                {activeApplications.slice(0, 3).map((app) => (
-                  <div key={`active-${app.id}`} className="flex justify-between items-center bg-white p-2 rounded-md border border-indigo-100 text-sm">
-                    <div className="flex items-center">
-                      <Clock className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
-                      <span className="font-medium">{app.position}</span>
-                    </div>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${getStatusClass(app.status)}`}>
-                      {app.status}
-                    </span>
-                  </div>
-                ))}
-                {activeApplications.length > 3 && (
-                  <div className="text-xs text-center text-indigo-600">
-                    +{activeApplications.length - 3} more active applications
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
         
         {/* Contacts and Interactions Section */}
@@ -370,7 +344,7 @@ export default async function CompanyDetailPage({
                     key={contact.id}
                     contact={contact}
                     companyId={company.id}
-                    interactions={interactions}
+                    interactions={interactions.filter(int => int.contact_id === contact.id)}
                   />
                 ))}
               </div>
@@ -392,15 +366,6 @@ export default async function CompanyDetailPage({
               </div>
             )}
           </div>
-          
-          {/* Recent Interactions Summary */}
-          {interactions.length > 0 && (
-            <RecentInteractionsSection
-              interactions={interactions}
-              formatRelativeDate={formatRelativeDate}
-              getInteractionTypeClass={getInteractionTypeClass}
-            />
-          )}
         </div>
       </div>
     </DashboardLayout>
@@ -411,22 +376,6 @@ export default async function CompanyDetailPage({
 function formatDate(dateString: string) {
   try {
     return format(new Date(dateString), 'MMM d, yyyy');
-  } catch (error) {
-    return dateString || 'N/A';
-  }
-}
-
-function formatRelativeDate(dateString: string) {
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 3600 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    
-    return format(date, 'MMM d');
   } catch (error) {
     return dateString || 'N/A';
   }
@@ -448,29 +397,6 @@ function getStatusClass(status: string) {
       return 'bg-red-100 text-red-800';
     case 'No Response 👻':
       return 'bg-gray-100 text-gray-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
-
-function getInteractionTypeClass(type: string) {
-  switch (type) {
-    case 'Email':
-      return 'bg-blue-100 text-blue-800';
-    case 'Phone Call':
-      return 'bg-green-100 text-green-800';
-    case 'Video Meeting':
-      return 'bg-purple-100 text-purple-800';
-    case 'In-Person Meeting':
-      return 'bg-orange-100 text-orange-800';
-    case 'Coffee Chat':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'Informational Interview':
-      return 'bg-indigo-100 text-indigo-800';
-    case 'Event/Conference':
-      return 'bg-pink-100 text-pink-800';
-    case 'LinkedIn Message':
-      return 'bg-blue-100 text-blue-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }

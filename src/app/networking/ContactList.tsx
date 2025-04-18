@@ -2,11 +2,13 @@
 
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronUp, ChevronDown, Mail, MessageSquare, Phone, Linkedin, GraduationCap } from 'lucide-react';
-import CompanyLogo from '@/components/CompanyLogo';
 import { useRouter } from 'next/navigation';
-import { Contact } from '@/types/common';
+import { ChevronUp, ChevronDown, Mail, MessageSquare, Phone, Linkedin, 
+         GraduationCap, MoreHorizontal } from 'lucide-react';
+import CompanyLogo from '@/components/CompanyLogo';
+import { Contact } from '@/types/networking';
 
 interface ContactsListProps {
   contacts: Contact[];
@@ -20,6 +22,7 @@ export default function ContactsList({
   sortOrder
 }: ContactsListProps) {
   const router = useRouter();
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   
   // Function to handle column header click for sorting
   const handleSort = (column: string) => {
@@ -53,13 +56,13 @@ export default function ContactsList({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
+    <div className="overflow-x-auto w-full">
+      <table className="min-w-full divide-y divide-gray-200 table-fixed">
         <thead className="bg-gray-50">
           <tr>
             <th 
               scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-1/4"
               onClick={() => handleSort('name')}
             >
               <div className="flex items-center">
@@ -69,7 +72,7 @@ export default function ContactsList({
             </th>
             <th 
               scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-1/4"
               onClick={() => handleSort('companies.name')}
             >
               <div className="flex items-center">
@@ -79,7 +82,7 @@ export default function ContactsList({
             </th>
             <th 
               scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-1/6"
               onClick={() => handleSort('status')}
             >
               <div className="flex items-center">
@@ -89,7 +92,7 @@ export default function ContactsList({
             </th>
             <th 
               scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-1/6"
               onClick={() => handleSort('last_interaction_date')}
             >
               <div className="flex items-center">
@@ -99,13 +102,14 @@ export default function ContactsList({
             </th>
             <th 
               scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12"
             >
-              <div className="flex items-center">
-                Contact Options
-              </div>
+              Contact Options
             </th>
-            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th 
+              scope="col" 
+              className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12"
+            >
               Actions
             </th>
           </tr>
@@ -162,8 +166,8 @@ export default function ContactsList({
                   <span className="text-gray-400 italic">None yet</span>
                 )}
               </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center space-x-2">
+              <td className="px-6 py-4 text-center">
+                <div className="flex items-center justify-center space-x-2">
                   {contact.email && (
                     <a 
                       href={`mailto:${contact.email}`} 
@@ -203,18 +207,52 @@ export default function ContactsList({
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <Link 
-                  href={`/networking/contacts/${contact.id}`} 
-                  className="text-indigo-600 hover:text-indigo-900 mr-3"
-                >
-                  View
-                </Link>
-                <Link 
-                  href={`/networking/contacts/${contact.id}/edit`} 
-                  className="text-indigo-600 hover:text-indigo-900"
-                >
-                  Edit
-                </Link>
+                <div className="relative inline-block text-left">
+                  <div>
+                    <button
+                      onClick={() => setOpenMenuId(openMenuId === contact.id ? null : contact.id)}
+                      className="flex items-center text-gray-400 hover:text-gray-600"
+                      id={`options-menu-${contact.id}`}
+                      aria-expanded="true"
+                      aria-haspopup="true"
+                    >
+                      <MoreHorizontal className="h-5 w-5" />
+                    </button>
+                  </div>
+                  
+                  {openMenuId === contact.id && (
+                    <div 
+                      className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
+                      role="menu"
+                      aria-orientation="vertical"
+                      aria-labelledby={`options-menu-${contact.id}`}
+                    >
+                      <div className="py-1" role="none">
+                        <Link
+                          href={`/networking/contacts/${contact.id}`}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                          role="menuitem"
+                        >
+                          View Details
+                        </Link>
+                        <Link
+                          href={`/networking/contacts/${contact.id}/edit`}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                          role="menuitem"
+                        >
+                          Edit Contact
+                        </Link>
+                        <Link
+                          href={`/networking/contacts/${contact.id}/add-interaction`}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                          role="menuitem"
+                        >
+                          Add Interaction
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

@@ -53,8 +53,10 @@ export default function ApplicationDetail({ application, interactions }: Applica
       
       if (error) throw error;
       
+      // Only redirect after a successful delete
+      // Use replace instead of push to prevent back navigation to deleted resource
+      router.replace('/applications');
       router.refresh();
-      router.push('/applications');
     } catch (err: unknown) {
       console.error('Error deleting application:', err);
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
@@ -259,6 +261,7 @@ export default function ApplicationDetail({ application, interactions }: Applica
           confirmButtonText="Delete Application"
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteModal(false)}
+          isLoading={isDeleting}
         />
       )}
     </>
@@ -267,6 +270,7 @@ export default function ApplicationDetail({ application, interactions }: Applica
 
 // Helper functions
 function formatDate(dateString: string) {
+  if (!dateString) return 'N/A';
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
     month: 'long',

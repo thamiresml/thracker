@@ -29,7 +29,7 @@ export default function DeleteConfirmationModal({
   // Handle ESC key to close modal
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !isLoading) {
         onCancel();
       }
     };
@@ -46,11 +46,11 @@ export default function DeleteConfirmationModal({
     return () => {
       window.removeEventListener('keydown', handleEsc);
     };
-  }, [onCancel]);
+  }, [onCancel, isLoading]);
   
   // Close when clicking outside the modal
   const handleClickOutside = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+    if (modalRef.current && !modalRef.current.contains(e.target as Node) && !isLoading) {
       onCancel();
     }
   };
@@ -80,6 +80,7 @@ export default function DeleteConfirmationModal({
             type="button"
             onClick={onCancel}
             className="text-gray-400 hover:text-gray-500 focus:outline-none"
+            disabled={isLoading}
           >
             <X className="h-5 w-5" />
           </button>
@@ -95,7 +96,7 @@ export default function DeleteConfirmationModal({
             type="button"
             onClick={onCancel}
             disabled={isLoading}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>

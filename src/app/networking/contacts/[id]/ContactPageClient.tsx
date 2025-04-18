@@ -2,11 +2,16 @@
 
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Edit, MessageSquare, GraduationCap, Mail, Phone, Linkedin } from 'lucide-react';
+import { 
+  Edit, MessageSquare, GraduationCap, Mail, Phone, 
+  Linkedin, Trash2, AlertTriangle 
+} from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import ContactInteractions from './ContactInteractions';
-import DeleteContactButton from '@/app/networking/DeleteContactButton';
+import { createClient } from '@/utils/supabase/client';
 
 interface Contact {
   id: number;
@@ -44,8 +49,68 @@ export default function ContactPageClient({
   interactions,
   returnUrl
 }: ContactPageClientProps) {
+  const router = useRouter();
+  const supabase = createClient();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [remainingInteractions, setRemainingInteractions] = useState<Interaction[]>(interactions);
+
+  // Handle contact deletion
+  const handleDeleteContact = async () => {
+    try {
+      setIsDeleting(true);
+      setError(null);
+      
+      // First delete all interactions for this contact
+      const { error: interactionsDeleteError } = await supabase
+        .from('interactions')
+        .delete()
+        .eq('contact_id', contact.id);
+        
+      if (interactionsDeleteError) throw interactionsDeleteError;
+      
+      // Then delete the contact itself
+      const { error: contactDeleteError } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', contact.id);
+        
+      if (contactDeleteError) throw contactDeleteError;
+      
+      // Navigate back to networking or the return URL
+      router.refresh();
+      router.push(returnUrl || '/networking');
+      
+    } catch (err: unknown) {
+      console.error('Error deleting contact:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete contact';
+      setError(errorMessage);
+      setShowDeleteModal(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Handle interaction deletion (passed to ContactInteractions)
+  const onInteractionDeleted = (deletedId: number) => {
+    setRemainingInteractions(
+      remainingInteractions.filter(interaction => interaction.id !== deletedId)
+    );
+  };
+  
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      {error && (
+        <div className="p-4 bg-red-50 border-b border-red-200">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 mr-2" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        </div>
+      )}
+      
       <div className="p-6 border-b border-gray-200">
         <div className="flex justify-between">
           <div className="flex items-center">
@@ -88,10 +153,37 @@ export default function ContactPageClient({
               <MessageSquare className="h-4 w-4 mr-2" />
               Add Interaction
             </Link>
-            <DeleteContactButton 
-              contactId={contact.id} 
-              contactName={contact.name}
-            />
+            <div className="relative">
+              <button
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                disabled={isDeleting}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+                </svg>
+                <span className="ml-1">More</span>
+              </button>
+              
+              {showOptionsMenu && (
+                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                  <div className="py-1" role="menu" aria-orientation="vertical">
+                    <button
+                      onClick={() => {
+                        setShowOptionsMenu(false);
+                        setShowDeleteModal(true);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                      role="menuitem"
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {isDeleting ? 'Deleting...' : 'Delete Contact'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -146,11 +238,65 @@ export default function ContactPageClient({
         </div>
 
         <ContactInteractions 
-          interactions={interactions} 
+          interactions={remainingInteractions} 
           contactId={contact.id} 
           returnUrl={returnUrl}
+          onInteractionDeleted={onInteractionDeleted}
         />
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative animate-fade-in-up">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="h-6 w-6 text-red-500" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Delete Contact
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="text-gray-400 hover:text-gray-500 focus:outline-none"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-5">
+              <p className="text-sm text-gray-500">
+                Are you sure you want to delete <span className="font-medium">{contact.name}</span>? 
+                This will also delete all interactions with this contact. 
+                This action cannot be undone.
+              </p>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteContact}
+                disabled={isDeleting}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Contact'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

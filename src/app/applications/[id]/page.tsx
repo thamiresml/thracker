@@ -20,8 +20,8 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
   const supabase = await createClient();
   
   // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
     redirect('/auth/login');
   }
   
@@ -33,16 +33,12 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
       companies (id, name, logo, website)
     `)
     .eq('id', id)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single();
   
-  if (error) {
+  // Handle case when application is not found or error occurs
+  if (error || !application) {
     console.error('Error fetching application:', error);
-    notFound();
-  }
-  
-  if (!application) {
-    console.error('Application not found');
     notFound();
   }
   
@@ -51,7 +47,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
     .from('contacts')
     .select('id')
     .eq('company_id', application.company_id)
-    .eq('user_id', session.user.id);
+    .eq('user_id', user.id);
     
   if (contactsError) {
     console.error('Error fetching company contacts:', contactsError);
@@ -75,7 +71,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
         )
       `)
       .in('contact_id', contactIds)
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .order('interaction_date', { ascending: false });
       
     if (interactionError) {

@@ -516,7 +516,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
             />
           </div>
 
-          <div>
+          {/* <div>
             <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
               Notes
             </label>
@@ -527,7 +527,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
               placeholder="Why you're interested, contacts, etc."
               {...register('notes')}
             />
-          </div>
+          </div> */}
           
           <div className="flex items-center">
             <input
