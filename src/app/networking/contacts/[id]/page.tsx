@@ -1,6 +1,6 @@
 // src/app/networking/contacts/[id]/page.tsx
 
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -80,7 +80,7 @@ export default async function ContactDetailPage(props: {
         />
       </DashboardLayout>
     );
-  } catch (err) {
+  } catch {
     // If we can't find the contact (likely because it was deleted), 
     // redirect to the networking page instead of showing an error
     return redirect('/networking');

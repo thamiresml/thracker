@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { 
   ArrowLeft, Star, Briefcase, Users, Building, Globe, Edit, 
   MessageSquare, Calendar, ExternalLink, 
-  MapPin, DollarSign, CheckCircle, Clock
+  MapPin, DollarSign, CheckCircle
 } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { createClient } from '@/utils/supabase/server';
@@ -84,11 +84,6 @@ export default async function CompanyDetailPage({
     latestInteraction: interactions?.length > 0 ? formatDate(interactions[0].interaction_date) : 'None'
   };
 
-  // Get active applications (those in progress)
-  const activeApplications = applications?.filter(
-    app => !['Saved', 'Not Selected', 'No Response 👻'].includes(app.status)
-  ) || [];
-  
   return (
     <DashboardLayout>
       <div className="flex items-center justify-between mb-6">
@@ -376,7 +371,7 @@ export default async function CompanyDetailPage({
 function formatDate(dateString: string) {
   try {
     return format(new Date(dateString), 'MMM d, yyyy');
-  } catch (error) {
+  } catch {
     return dateString || 'N/A';
   }
 }

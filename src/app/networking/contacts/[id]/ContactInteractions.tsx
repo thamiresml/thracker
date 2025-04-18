@@ -4,7 +4,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { MessageSquare, Calendar, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { format } from 'date-fns';
@@ -30,7 +29,6 @@ export default function ContactInteractions({
   returnUrl,
   onInteractionDeleted
 }: ContactInteractionsProps) {
-  const router = useRouter();
   const supabase = createClient();
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -41,7 +39,7 @@ export default function ContactInteractions({
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM d, yyyy');
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };

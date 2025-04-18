@@ -2,7 +2,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { Calendar, Edit } from 'lucide-react';
 import DeleteInteractionButton from '@/app/networking/DeleteInteractionButton';
@@ -33,7 +32,7 @@ export default function InteractionItem({
         day: 'numeric',
         year: 'numeric'
       }).format(date);
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };

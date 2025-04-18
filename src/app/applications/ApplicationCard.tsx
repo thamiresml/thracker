@@ -65,7 +65,7 @@ export default function ApplicationCard({
         day: 'numeric',
         year: 'numeric'
       }).format(date);
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };

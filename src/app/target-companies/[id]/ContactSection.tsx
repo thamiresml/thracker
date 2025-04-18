@@ -36,13 +36,13 @@ export default function ContactSection({
   companyId,
   interactions
 }: ContactSectionProps) {
-  const [displayInteractions, setDisplayInteractions] = useState<Interaction[]>(interactions);
+  const [displayInteractions] = useState<Interaction[]>(interactions);
   
   // Format date for display
   const formatInteractionDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM d, yyyy');
-    } catch (error) {
+    } catch {
       return dateString || 'N/A';
     }
   };

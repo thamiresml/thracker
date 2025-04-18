@@ -3,8 +3,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { MessageSquare, Calendar } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import DeleteInteractionButton from '@/app/networking/DeleteInteractionButton';
 
 interface Interaction {
@@ -29,7 +28,6 @@ export default function RecentInteractionsSection({
   formatRelativeDate,
   getInteractionTypeClass
 }: RecentInteractionsSectionProps) {
-  const router = useRouter();
   const [interactions, setInteractions] = useState<Interaction[]>(initialInteractions);
   
   const handleInteractionDeleted = (deletedId: number) => {
