@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { format } from 'date-fns';
+import { format, startOfWeek } from 'date-fns';
 import { CheckCircle, Clock, CheckSquare, Plus } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import TaskModal from './TaskModal';
@@ -45,7 +45,8 @@ interface TaskBoardProps {
 
 export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   const supabase = createClient();
-  const startDateFormatted = format(startDate, 'yyyy-MM-dd');
+  const weekStart = startOfWeek(startDate, { weekStartsOn: 1 });
+  const startDateFormatted = format(weekStart, 'yyyy-MM-dd');
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -232,7 +233,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(startDate, 'MMM d, yyyy')}</h2>
+        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(weekStart, 'MMM d, yyyy')}</h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -267,7 +268,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
           onClose={() => setIsTaskModalOpen(false)}
           onSave={onTaskSaved}
           userId={userId}
-          defaultStatus={editingTask?.status || statusForNewTask}
+          defaultStatus={statusForNewTask}
           weekStartDate={startDateFormatted}
         />
       )}
@@ -275,13 +276,9 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
       {showDeleteModal && taskToDelete && (
         <DeleteConfirmationModal
           title="Delete Task"
-          message={`Are you sure you want to delete the task \"${taskToDelete.title}\"? This action cannot be undone.`}
-          confirmButtonText="Delete"
+          message={`Are you sure you want to delete "${taskToDelete.title}"? This action cannot be undone.`}
           onConfirm={confirmDeleteTask}
-          onCancel={() => {
-            setShowDeleteModal(false);
-            setTaskToDelete(null);
-          }}
+          onCancel={() => setShowDeleteModal(false)}
         />
       )}
     </>
