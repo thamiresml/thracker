@@ -1,8 +1,13 @@
 // src/app/weekly-plan/page.tsx
-
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, parseISO } from 'date-fns';
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  addWeeks,
+  subWeeks
+} from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
 import MiniCalendar from '@/components/weekly-plan/MiniCalendar';
@@ -15,91 +20,66 @@ import { createClient } from '@/utils/supabase/server';
 export const dynamic = 'force-dynamic';
 
 export default async function WeeklyPlanPage({
-  searchParams,
+  searchParams
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // Create supabase client
   const supabase = await createClient();
-  
-  // Check if user is authenticated
-  const { data: { session } } = await supabase.auth.getSession();
+
+  const {
+    data: { session }
+  } = await supabase.auth.getSession();
   if (!session) {
     redirect('/auth/login');
   }
 
-  // Get authenticated user data for security
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
   if (!user) {
     redirect('/auth/login');
   }
 
-  // Properly await searchParams before accessing properties
   const params = await searchParams;
-  
-  // Parse week parameter or use current week
   let currentDate = new Date();
-  
   const weekValue = params['week'];
-  
-  console.log('Weekly Plan Page - Initial parameters:', { 
-    weekValue,
-    currentTime: new Date().toISOString()
-  });
-  
+
   if (weekValue && typeof weekValue === 'string') {
     try {
-      // Parse the date directly from the URL parameter
-      const parsedDate = parseISO(weekValue);
-      
+      const parsedDate = new Date(`${weekValue}T00:00:00`);
+      parsedDate.setHours(0, 0, 0, 0);
+
       if (!isNaN(parsedDate.getTime())) {
         currentDate = parsedDate;
-        console.log('Weekly Plan Page - Using parsed date:', {
-          parsedDate: parsedDate.toISOString(),
-          weekValue
-        });
       } else {
         console.error('Invalid date format in URL:', weekValue);
       }
     } catch (error) {
-      console.error('Error parsing date:', error, 'Using current date instead');
+      console.error('Error parsing date:', error);
     }
   }
 
-  // Calculate week boundaries - important to use weekStartsOn: 1 consistently
-  // This ensures weeks always start on Monday
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
-  
-  // Format week start date for TaskBoard component
-  const weekStartFormatted = format(weekStart, 'yyyy-MM-dd');
-  
-  // Format dates for display
-  const weekDisplayRange = `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
-  
-  // Generate dates for prev/next week links - always use Monday as start day
+  //const weekStartFormatted = format(weekStart, 'yyyy-MM-dd');
+  const weekDisplayRange = `${format(weekStart, 'MMM d')} - ${format(
+    weekEnd,
+    'MMM d, yyyy'
+  )}`;
+
   const prevWeek = format(subWeeks(weekStart, 1), 'yyyy-MM-dd');
   const nextWeek = format(addWeeks(weekStart, 1), 'yyyy-MM-dd');
   const thisWeek = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  
-  console.log('Weekly Plan Page - Calculated dates:', {
-    weekStart: format(weekStart, 'yyyy-MM-dd'),
-    weekEnd: format(weekEnd, 'yyyy-MM-dd'),
-    prevWeek,
-    nextWeek,
-    thisWeek,
-    weekStartFormatted
-  });
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <PageHeader 
-          title="Weekly Plan" 
+        <PageHeader
+          title="Weekly Plan"
           description="Organize your recruiting activities for the week"
         />
-        
-        <WeeklyPlanHeader 
+
+        <WeeklyPlanHeader
           weekDisplayRange={weekDisplayRange}
           prevWeekLink={`/weekly-plan?week=${prevWeek}`}
           nextWeekLink={`/weekly-plan?week=${nextWeek}`}
@@ -107,8 +87,7 @@ export default async function WeeklyPlanPage({
           startDate={weekStart}
           endDate={weekEnd}
         />
-        
-        {/* Weekly Stats Component */}
+
         <Suspense fallback={<LoadingSpinner />}>
           <WeeklyStats
             startDate={weekStart}
@@ -116,26 +95,19 @@ export default async function WeeklyPlanPage({
             userId={user.id}
           />
         </Suspense>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
             <Suspense fallback={<LoadingSpinner />}>
-              <TaskBoard 
-                startDate={weekStart} 
-                endDate={weekEnd} 
-                userId={user.id}
-              />
+              <TaskBoard startDate={weekStart} endDate={weekEnd} userId={user.id} />
             </Suspense>
           </div>
-          
+
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h3 className="text-lg font-medium text-gray-900 mb-3">Month Overview</h3>
-              <MiniCalendar 
-                currentDate={currentDate}
-                weekStartsOn={1}
-              />
-              
+              <MiniCalendar currentDate={currentDate} weekStartsOn={1} />
+
               <div className="mt-6 border-t border-gray-200 pt-4">
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Tips</h3>
                 <div className="space-y-3">
@@ -146,7 +118,8 @@ export default async function WeeklyPlanPage({
                   </div>
                   <div className="bg-green-50 p-3 rounded-md">
                     <p className="text-sm text-green-800">
-                      Creating a weekly plan helps you stay organized and focused on your job search goals.
+                      Creating a weekly plan helps you stay organized and focused on your job search
+                      goals.
                     </p>
                   </div>
                 </div>
