@@ -94,12 +94,33 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   // Debug logging for date issues
   useEffect(() => {
     console.log('TaskBoard initialized with:', {
-      startDate: startDate.toISOString(),
+      startDateISO: startDate.toISOString(),
       startDateFormatted,
-      dayOfWeek: startDate.getDay(), // 1 should be Monday
+      dayOfWeekFromDateObject: startDate.getDay(), // Be wary of TZ
       currentTime: new Date().toISOString()
     });
   }, [startDate, startDateFormatted]);
+
+  let taskBoardTitle = 'Tasks for Week'; // Default title
+  try {
+    const parts = startDateFormatted.split('-');
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]); // 1-12
+    const day = parseInt(parts[2]);
+    // Create a date known to be UTC midnight for reliable month formatting
+    const tempUTCDate = new Date(Date.UTC(year, month - 1, day)); 
+    const monthName = tempUTCDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+    taskBoardTitle = `Tasks for Week of ${monthName} ${day}, ${year}`;
+  } catch (e) {
+    console.error("Error formatting date title from string:", e);
+    // Fallback to using the original potentially problematic format
+    try {
+        taskBoardTitle = `Tasks for Week of ${format(startDate, 'MMM d, yyyy')}`;
+    } catch (formatError) {
+        console.error("Fallback date formatting failed:", formatError);
+        // Leave as default if all formatting fails
+    }
+  }
 
   const handleAddTask = (status: string) => {
     setEditingTask(null);
@@ -242,7 +263,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(startDate, 'MMM d, yyyy')}</h2>
+        <h2 className="text-lg font-medium text-gray-900">{taskBoardTitle}</h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
