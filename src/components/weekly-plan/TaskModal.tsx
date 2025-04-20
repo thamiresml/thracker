@@ -130,9 +130,11 @@ export default function TaskModal({
       setIsLoading(true);
       setError(null);
       
-      // Ensure we have a valid week_start_date
+      // Ensure we have a valid week_start_date - this is the key fix
       if (!weekStartDate) {
         console.error('Missing weekStartDate in TaskModal');
+        setError('Error: Week start date is missing. Please try again.');
+        return;
       }
       
       // Log what we're about to save
@@ -150,7 +152,7 @@ export default function TaskModal({
         due_date: dueDate || null,
         related_application_id: taskType === 'application' ? relatedApplicationId : null,
         user_id: userId,
-        week_start_date: weekStartDate || null
+        week_start_date: weekStartDate // Use the exact date provided by the parent
       };
       
       if (task) {

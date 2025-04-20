@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, parseISO } from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
 import MiniCalendar from '@/components/weekly-plan/MiniCalendar';
@@ -42,28 +42,54 @@ export default async function WeeklyPlanPage({
   
   const weekValue = params['week'];
   
+  console.log('Weekly Plan Page - Initial parameters:', { 
+    weekValue,
+    currentTime: new Date().toISOString()
+  });
+  
   if (weekValue && typeof weekValue === 'string') {
     try {
-      const parsedDate = new Date(weekValue);
+      // Parse the date directly from the URL parameter
+      const parsedDate = parseISO(weekValue);
+      
       if (!isNaN(parsedDate.getTime())) {
         currentDate = parsedDate;
+        console.log('Weekly Plan Page - Using parsed date:', {
+          parsedDate: parsedDate.toISOString(),
+          weekValue
+        });
+      } else {
+        console.error('Invalid date format in URL:', weekValue);
       }
     } catch (error) {
-      console.error('Error parsing date:', error);
+      console.error('Error parsing date:', error, 'Using current date instead');
     }
   }
 
-  // Calculate week boundaries - ensuring we start from Monday
+  // Calculate week boundaries - important to use weekStartsOn: 1 consistently
+  // This ensures weeks always start on Monday
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+  
+  // Format week start date for TaskBoard component
+  const weekStartFormatted = format(weekStart, 'yyyy-MM-dd');
   
   // Format dates for display
   const weekDisplayRange = `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
   
-  // Generate dates for prev/next week links
+  // Generate dates for prev/next week links - always use Monday as start day
   const prevWeek = format(subWeeks(weekStart, 1), 'yyyy-MM-dd');
   const nextWeek = format(addWeeks(weekStart, 1), 'yyyy-MM-dd');
   const thisWeek = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  
+  console.log('Weekly Plan Page - Calculated dates:', {
+    weekStart: format(weekStart, 'yyyy-MM-dd'),
+    weekEnd: format(weekEnd, 'yyyy-MM-dd'),
+    prevWeek,
+    nextWeek,
+    thisWeek,
+    weekStartFormatted
+  });
 
   return (
     <DashboardLayout>

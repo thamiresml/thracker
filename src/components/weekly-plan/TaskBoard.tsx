@@ -2,11 +2,9 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { format, addWeeks, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { 
-  CheckCircle, Clock, CheckSquare, Plus, 
-  Calendar, CheckCheck,
-  ChevronDown
+  CheckCircle, Clock, CheckSquare, Plus, CheckCheck
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import TaskModal from './TaskModal';
@@ -50,6 +48,9 @@ interface TaskBoardProps {
 
 export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   const supabase = createClient();
+  
+  // Always use the exact startDate provided by the parent component
+  // This ensures consistency with the URL parameter
   const startDateFormatted = format(startDate, 'yyyy-MM-dd');
 
   // Task states
@@ -65,9 +66,6 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   // Selection states for multi-select feature
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<number[]>([]);
-  
-  // Target week for moving tasks
-  const [showWeekSelector, setShowWeekSelector] = useState(false);
   
   // Drag state
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -86,13 +84,13 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
       setError(null);
 
       // Log the query parameters to debug
-      console.log('Fetching tasks with params:', {
+      console.log('TaskBoard - Fetching tasks with params:', {
         userId, 
         startDateFormatted,
         currentTime: new Date().toISOString()
       });
 
-      // Query tasks for the specific week - using exact date comparison
+      // Query tasks for the specific week - using exact date from parent
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -114,7 +112,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
       if (error) throw error;
       
       // Log the received data for debugging purposes
-      console.log(`Received ${data?.length || 0} tasks for week starting: ${startDateFormatted}`);
+      console.log(`TaskBoard - Received ${data?.length || 0} tasks for week starting: ${startDateFormatted}`);
       
       setTasks(data || []);
       
@@ -129,9 +127,9 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
 
   // Load tasks on component mount and when week changes
   useEffect(() => {
-    console.log('TaskBoard mounted or week changed, fetching tasks...');
+    console.log('TaskBoard - Mounted or week changed, fetching tasks for week starting:', startDateFormatted);
     fetchTasks();
-  }, [fetchTasks]);
+  }, [fetchTasks, startDateFormatted]);
 
   // Open task creation modal
   const handleAddTask = (status: string) => {
@@ -211,56 +209,27 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
     }
   };
 
-  // Move selected tasks to a different week
-  const moveSelectedTasksToWeek = async (targetDate: Date) => {
-    if (selectedTasks.length === 0) return;
-    
-    try {
-      // Format the target week start date
-      const targetWeekStart = format(targetDate, 'yyyy-MM-dd');
-      
-      // Update all selected tasks
-      const { error } = await supabase
-        .from('tasks')
-        .update({ week_start_date: targetWeekStart })
-        .in('id', selectedTasks);
-      
-      if (error) throw error;
-      
-      // Remove moved tasks from current view
-      setTasks(tasks.filter(task => !selectedTasks.includes(task.id)));
-      setSelectedTasks([]);
-      setShowWeekSelector(false);
-      
-      alert(`Successfully moved ${selectedTasks.length} tasks to week of ${format(targetDate, 'MMM d, yyyy')}.`);
-      
-    } catch (err: unknown) {
-      console.error('Error moving tasks:', err);
-      alert('Failed to move tasks to selected week.');
-    }
-  };
-
-  // Generate week options for the dropdown
-  const getWeekOptions = () => {
-    const options = [];
-    
-    // Previous week
-    const prevWeek = addDays(startDate, -7);
-    options.push({
-      date: prevWeek,
-      label: `Previous week (${format(prevWeek, 'MMM d')})`
-    });
-    
-    // Next 4 weeks
-    for (let i = 1; i <= 4; i++) {
-      const weekDate = addWeeks(startDate, i);
-      options.push({
-        date: weekDate,
-        label: `${i === 1 ? 'Next' : `+${i}`} week (${format(weekDate, 'MMM d')})`
-      });
-    }
-    
-    return options;
+  // Utility function to generate task UI
+  const renderTasks = (columnTasks: Task[], columnId: string) => {
+    return columnTasks.map(task => (
+      <div
+        key={task.id}
+        id={`task-${task.id}`}
+        draggable={!selectionMode}
+        onDragStart={() => handleDragStart(task)}
+        onDragEnd={handleDragEnd}
+      >
+        <TaskItem
+          task={task}
+          onEdit={() => handleEditTask(task)}
+          onDelete={() => handleDeleteTask(task.id)}
+          isSelected={selectedTasks.includes(task.id)}
+          onToggleSelect={() => toggleTaskSelection(task.id)}
+          selectionMode={selectionMode}
+          isDone={columnId === TASK_STATUS.DONE}
+        />
+      </div>
+    ));
   };
 
   // Custom drag and drop handlers
@@ -361,29 +330,6 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
     }
   };
 
-  // Utility function to generate task UI
-  const renderTasks = (columnTasks: Task[], columnId: string) => {
-    return columnTasks.map(task => (
-      <div
-        key={task.id}
-        id={`task-${task.id}`}
-        draggable={!selectionMode}
-        onDragStart={() => handleDragStart(task)}
-        onDragEnd={handleDragEnd}
-      >
-        <TaskItem
-          task={task}
-          onEdit={() => handleEditTask(task)}
-          onDelete={() => handleDeleteTask(task.id)}
-          isSelected={selectedTasks.includes(task.id)}
-          onToggleSelect={() => toggleTaskSelection(task.id)}
-          selectionMode={selectionMode}
-          isDone={columnId === TASK_STATUS.DONE}
-        />
-      </div>
-    ));
-  };
-
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-8 flex items-center justify-center">
@@ -421,33 +367,6 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
             <CheckCheck className="h-4 w-4 mr-1" />
             {selectionMode ? 'Exit Selection' : 'Select Tasks'}
           </button>
-          
-          {selectionMode && selectedTasks.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setShowWeekSelector(!showWeekSelector)}
-                className="inline-flex items-center px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
-              >
-                <Calendar className="h-4 w-4 mr-1" />
-                Move to Week ({selectedTasks.length})
-                <ChevronDown className="h-4 w-4 ml-1" />
-              </button>
-              
-              {showWeekSelector && (
-                <div className="absolute right-0 mt-1 w-64 bg-white rounded-md shadow-lg z-10 py-1">
-                  {getWeekOptions().map((option, index) => (
-                    <button
-                      key={index}
-                      onClick={() => moveSelectedTasksToWeek(option.date)}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
