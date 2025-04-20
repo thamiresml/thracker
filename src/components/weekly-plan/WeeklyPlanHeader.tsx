@@ -22,10 +22,29 @@ export default function WeeklyPlanHeader({
   startDate,
   endDate
 }: WeeklyPlanHeaderProps) {
+  // Check if the current date is within the displayed week range
   const isCurrentWeek = () => {
     const now = new Date();
-    return now >= startDate && now <= endDate;
+    // Adding timezone adjustments to ensure proper comparison
+    const startDateTime = new Date(startDate.getTime());
+    const endDateTime = new Date(endDate.getTime());
+    // Adjust end date to include the full day
+    endDateTime.setHours(23, 59, 59, 999);
+    
+    return now >= startDateTime && now <= endDateTime;
   };
+
+  // For debugging
+  console.log('WeeklyPlanHeader Props:', {
+    weekDisplayRange,
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    isCurrentWeek: isCurrentWeek(),
+    prevWeekLink,
+    nextWeekLink,
+    currentWeekLink,
+    currentTime: new Date().toISOString()
+  });
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-4">

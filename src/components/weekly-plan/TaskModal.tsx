@@ -1,5 +1,4 @@
 // src/components/weekly-plan/TaskModal.tsx
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -60,6 +59,17 @@ export default function TaskModal({
   const [error, setError] = useState<string | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   
+  // Debug logging
+  useEffect(() => {
+    console.log('TaskModal initialized with:', {
+      taskId: task?.id || 'new task',
+      weekStartDate,
+      defaultStatus,
+      userId,
+      currentTime: new Date().toISOString()
+    });
+  }, [task, weekStartDate, defaultStatus, userId]);
+  
   // Load applications for the dropdown
   useEffect(() => {
     const fetchApplications = async () => {
@@ -119,6 +129,19 @@ export default function TaskModal({
     try {
       setIsLoading(true);
       setError(null);
+      
+      // Ensure we have a valid week_start_date
+      if (!weekStartDate) {
+        console.error('Missing weekStartDate in TaskModal');
+      }
+      
+      // Log what we're about to save
+      console.log('Saving task with data:', {
+        title,
+        status,
+        week_start_date: weekStartDate,
+        userId
+      });
       
       const taskData = {
         title,
@@ -290,6 +313,9 @@ export default function TaskModal({
               </select>
             </div>
           )}
+          
+          {/* Hidden input to debug */}
+          <input type="hidden" name="week_start_date" value={weekStartDate || ''} />
           
           <div className="flex justify-end space-x-3 pt-4">
             <button

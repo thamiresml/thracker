@@ -1,9 +1,8 @@
 // src/components/weekly-plan/TaskBoard.tsx
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { format, startOfWeek} from 'date-fns';
+import { format, addWeeks, addDays } from 'date-fns';
 import { 
   CheckCircle, Clock, CheckSquare, Plus, 
   Calendar, CheckCheck,
@@ -51,9 +50,7 @@ interface TaskBoardProps {
 
 export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   const supabase = createClient();
-  // Ensure startDate is a Monday by calculating startOfWeek with weekStartsOn=1
-  const adjustedStartDate = startOfWeek(startDate, { weekStartsOn: 1 });
-  const startDateFormatted = format(adjustedStartDate, 'yyyy-MM-dd');
+  const startDateFormatted = format(startDate, 'yyyy-MM-dd');
 
   // Task states
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -88,9 +85,14 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
       setIsLoading(true);
       setError(null);
 
-      console.log("Fetching tasks for week starting:", startDateFormatted);
+      // Log the query parameters to debug
+      console.log('Fetching tasks with params:', {
+        userId, 
+        startDateFormatted,
+        currentTime: new Date().toISOString()
+      });
 
-      // Query tasks for the specific week
+      // Query tasks for the specific week - using exact date comparison
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -111,6 +113,9 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
 
       if (error) throw error;
       
+      // Log the received data for debugging purposes
+      console.log(`Received ${data?.length || 0} tasks for week starting: ${startDateFormatted}`);
+      
       setTasks(data || []);
       
     } catch (err: unknown) {
@@ -124,6 +129,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
 
   // Load tasks on component mount and when week changes
   useEffect(() => {
+    console.log('TaskBoard mounted or week changed, fetching tasks...');
     fetchTasks();
   }, [fetchTasks]);
 
@@ -239,7 +245,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
     const options = [];
     
     // Previous week
-    const prevWeek = startOfWeek(new Date(startDate.getTime() - 7 * 24 * 60 * 60 * 1000), { weekStartsOn: 1 });
+    const prevWeek = addDays(startDate, -7);
     options.push({
       date: prevWeek,
       label: `Previous week (${format(prevWeek, 'MMM d')})`
@@ -247,8 +253,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
     
     // Next 4 weeks
     for (let i = 1; i <= 4; i++) {
-      const weekTimestamp = startDate.getTime() + (i * 7 * 24 * 60 * 60 * 1000);
-      const weekDate = startOfWeek(new Date(weekTimestamp), { weekStartsOn: 1 });
+      const weekDate = addWeeks(startDate, i);
       options.push({
         date: weekDate,
         label: `${i === 1 ? 'Next' : `+${i}`} week (${format(weekDate, 'MMM d')})`
@@ -405,7 +410,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(adjustedStartDate, 'MMM d, yyyy')}</h2>
+        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(startDate, 'MMM d, yyyy')}</h2>
         <div className="flex space-x-2">
           <button
             onClick={toggleSelectionMode}
