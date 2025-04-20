@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { format, startOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 import { CheckCircle, Clock, CheckSquare, Plus } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import TaskModal from './TaskModal';
@@ -45,8 +45,7 @@ interface TaskBoardProps {
 
 export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   const supabase = createClient();
-  const weekStart = startOfWeek(startDate, { weekStartsOn: 1 });
-  const startDateFormatted = format(weekStart, 'yyyy-MM-dd');
+  const startDateFormatted = format(startDate, 'yyyy-MM-dd');
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +90,16 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks, startDateFormatted]);
+
+  // Debug logging for date issues
+  useEffect(() => {
+    console.log('TaskBoard initialized with:', {
+      startDate: startDate.toISOString(),
+      startDateFormatted,
+      dayOfWeek: startDate.getDay(), // 1 should be Monday
+      currentTime: new Date().toISOString()
+    });
+  }, [startDate, startDateFormatted]);
 
   const handleAddTask = (status: string) => {
     setEditingTask(null);
@@ -233,7 +242,7 @@ export default function TaskBoard({ startDate, userId }: TaskBoardProps) {
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(weekStart, 'MMM d, yyyy')}</h2>
+        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(startDate, 'MMM d, yyyy')}</h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
