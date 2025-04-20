@@ -2,7 +2,6 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import {
-  format,
   startOfWeek,
   endOfWeek,
   addWeeks,
@@ -65,9 +64,6 @@ export default async function WeeklyPlanPage({
   
   const weekStart = startOfWeek(zonedTargetDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(zonedTargetDate, { weekStartsOn: 1 });
-  
-  const weekStartString = formatTz(weekStart, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
-  const weekEndString = formatTz(weekEnd, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
   
   const weekDisplayRange = `${formatTz(weekStart, 'MMM d', { timeZone: TIME_ZONE })} - ${formatTz(
     weekEnd,
