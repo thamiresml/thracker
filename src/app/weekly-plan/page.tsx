@@ -6,8 +6,10 @@ import {
   startOfWeek,
   endOfWeek,
   addWeeks,
-  subWeeks
+  subWeeks,
+  isValid
 } from 'date-fns';
+import { toZonedTime, format as formatTz } from 'date-fns-tz';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
 import MiniCalendar from '@/components/weekly-plan/MiniCalendar';
@@ -18,6 +20,8 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
+
+const TIME_ZONE = 'UTC';
 
 export default async function WeeklyPlanPage({
   searchParams
@@ -41,35 +45,56 @@ export default async function WeeklyPlanPage({
   }
 
   const params = await searchParams;
-  let currentDate = new Date();
   const weekValue = params['week'];
+  let targetDate: Date;
 
-  if (weekValue && typeof weekValue === 'string') {
-    try {
-      const parsedDate = new Date(`${weekValue}T00:00:00`);
-      parsedDate.setHours(0, 0, 0, 0);
-
-      if (!isNaN(parsedDate.getTime())) {
-        currentDate = parsedDate;
-      } else {
-        console.error('Invalid date format in URL:', weekValue);
-      }
-    } catch (error) {
-      console.error('Error parsing date:', error);
+  if (weekValue && typeof weekValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(weekValue)) {
+    const parsedUtcDate = new Date(`${weekValue}T00:00:00Z`);
+    if (isValid(parsedUtcDate)) {
+      targetDate = parsedUtcDate;
+    } else {
+      console.warn('Invalid date format in URL, using current date (UTC):', weekValue);
+      targetDate = new Date();
     }
+  } else {
+    console.warn('No valid week parameter, using current date (UTC):', weekValue);
+    targetDate = new Date();
   }
 
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
-  //const weekStartFormatted = format(weekStart, 'yyyy-MM-dd');
-  const weekDisplayRange = `${format(weekStart, 'MMM d')} - ${format(
+  const zonedTargetDate = toZonedTime(targetDate, TIME_ZONE);
+  
+  const weekStart = startOfWeek(zonedTargetDate, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(zonedTargetDate, { weekStartsOn: 1 });
+  
+  const weekStartString = formatTz(weekStart, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
+  const weekEndString = formatTz(weekEnd, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
+  
+  const weekDisplayRange = `${formatTz(weekStart, 'MMM d', { timeZone: TIME_ZONE })} - ${formatTz(
     weekEnd,
-    'MMM d, yyyy'
+    'MMM d, yyyy',
+    { timeZone: TIME_ZONE }
   )}`;
 
-  const prevWeek = format(subWeeks(weekStart, 1), 'yyyy-MM-dd');
-  const nextWeek = format(addWeeks(weekStart, 1), 'yyyy-MM-dd');
-  const thisWeek = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const prevWeekDate = subWeeks(weekStart, 1);
+  const nextWeekDate = addWeeks(weekStart, 1);
+  const todayWeekStartDate = startOfWeek(toZonedTime(new Date(), TIME_ZONE), { weekStartsOn: 1 });
+
+  const prevWeek = formatTz(prevWeekDate, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
+  const nextWeek = formatTz(nextWeekDate, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
+  const thisWeek = formatTz(todayWeekStartDate, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
+
+  const weekStartStringForQuery = formatTz(weekStart, 'yyyy-MM-dd', { timeZone: TIME_ZONE });
+
+  console.log("Weekly Plan Page Calculation:", {
+    inputWeekValue: weekValue,
+    parsedTargetDateUTC: targetDate.toISOString(),
+    zonedTargetDate: formatTz(zonedTargetDate, 'yyyy-MM-dd HH:mm:ssXXX', { timeZone: TIME_ZONE }),
+    calculatedWeekStart: formatTz(weekStart, 'yyyy-MM-dd HH:mm:ssXXX', { timeZone: TIME_ZONE }),
+    calculatedWeekEnd: formatTz(weekEnd, 'yyyy-MM-dd HH:mm:ssXXX', { timeZone: TIME_ZONE }),
+    weekStartStringForQuery: weekStartStringForQuery,
+    weekDisplayRange,
+    prevWeek, nextWeek, thisWeek
+  });
 
   return (
     <DashboardLayout>
@@ -99,14 +124,14 @@ export default async function WeeklyPlanPage({
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
             <Suspense fallback={<LoadingSpinner />}>
-              <TaskBoard startDate={weekStart} endDate={weekEnd} userId={user.id} />
+              <TaskBoard startDate={weekStart} userId={user.id} />
             </Suspense>
           </div>
 
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h3 className="text-lg font-medium text-gray-900 mb-3">Month Overview</h3>
-              <MiniCalendar currentDate={currentDate} weekStartsOn={1} />
+              <MiniCalendar currentDate={zonedTargetDate} weekStartsOn={1} />
 
               <div className="mt-6 border-t border-gray-200 pt-4">
                 <h3 className="text-lg font-medium text-gray-900 mb-3">Tips</h3>
