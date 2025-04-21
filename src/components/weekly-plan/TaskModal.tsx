@@ -12,7 +12,7 @@ interface TaskModalProps {
   onSave: () => void;
   userId: string;
   defaultStatus?: string;
-  weekStartDate?: string;
+  weekStartDate: string; // Explicitly passed formatted date string
 }
 
 interface Application {
@@ -130,7 +130,7 @@ export default function TaskModal({
       setIsLoading(true);
       setError(null);
       
-      // Ensure we have a valid week_start_date - this is the key fix
+      // Ensure we have a valid week_start_date
       if (!weekStartDate) {
         console.error('Missing weekStartDate in TaskModal');
         setError('Error: Week start date is missing. Please try again.');
@@ -152,7 +152,7 @@ export default function TaskModal({
         due_date: dueDate || null,
         related_application_id: taskType === 'application' ? relatedApplicationId : null,
         user_id: userId,
-        week_start_date: weekStartDate // Use the exact date provided by the parent
+        week_start_date: weekStartDate // Use the exact date string passed from parent
       };
       
       if (task) {
@@ -338,5 +338,5 @@ export default function TaskModal({
         </form>
       </div>
     </div>
-  );
+  );  
 }
