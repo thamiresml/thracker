@@ -1,4 +1,5 @@
 // src/middleware.ts
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
@@ -59,22 +60,55 @@ export async function middleware(request: NextRequest) {
   )
 
   // Refresh session if expired - required for Server Components
-  await supabase.auth.getSession()
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  // Root route handling (/)
+  if (request.nextUrl.pathname === '/') {
+    // If user is logged in, let them access the dashboard at root
+    if (session) {
+      return response
+    } else {
+      // If user is not logged in, redirect to landing page
+      return NextResponse.redirect(new URL('/landing', request.url))
+    }
+  }
+
+  // Landing page handling - allow all users to see it
+  if (request.nextUrl.pathname.startsWith('/landing')) {
+    return response
+  }
+
+  // Protection for authenticated routes
+  if (isProtectedRoute(request.nextUrl.pathname) && !session) {
+    // Store the original URL the user was trying to access
+    const redirectUrl = new URL('/auth/login', request.url)
+    redirectUrl.searchParams.set('redirectedFrom', request.nextUrl.pathname)
+    return NextResponse.redirect(redirectUrl)
+  }
 
   return response
 }
 
-// Only run middleware on auth-required routes
+// Helper function to determine if a route should be protected
+function isProtectedRoute(pathname: string): boolean {
+  const protectedPaths = [
+    '/applications',
+    '/networking',
+    '/target-companies',
+    '/weekly-plan'
+  ]
+  
+  return protectedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`))
+}
+
+// Only run middleware on specific routes
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public files)
-     * - auth (auth routes that don't need session validation)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|public|auth).*)',
+    '/',
+    '/landing',
+    '/applications/:path*',
+    '/networking/:path*',
+    '/target-companies/:path*',
+    '/weekly-plan/:path*',
   ],
 }
