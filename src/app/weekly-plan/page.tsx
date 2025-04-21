@@ -119,10 +119,10 @@ export default async function WeeklyPlanPage({
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
             <Suspense fallback={<LoadingSpinner />}>
-              <TaskBoard 
-                startDate={weekStart}
+                              <TaskBoard 
                 weekStartFormatted={weekStartFormatted} 
                 userId={user.id}
+                weekDisplayText={format(weekStart, 'MMM d, yyyy')}
               />
             </Suspense>
           </div>

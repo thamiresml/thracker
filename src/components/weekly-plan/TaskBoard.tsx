@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { format } from 'date-fns';
 import { 
   CheckCircle, Clock, CheckSquare, Plus, CheckCheck
 } from 'lucide-react';
@@ -41,12 +40,12 @@ export interface Task {
 }
 
 interface TaskBoardProps {
-  startDate: Date;
   weekStartFormatted: string; // Explicit formatted date string passed from parent
   userId: string;
+  weekDisplayText: string; // Display text for the week of header
 }
 
-export default function TaskBoard({ startDate, weekStartFormatted, userId }: TaskBoardProps) {
+export default function TaskBoard({ weekStartFormatted, userId, weekDisplayText }: TaskBoardProps) {
   const supabase = createClient();
   
   // Task states
@@ -352,7 +351,7 @@ export default function TaskBoard({ startDate, weekStartFormatted, userId }: Tas
   return (
     <>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {format(startDate, 'MMM d, yyyy')}</h2>
+        <h2 className="text-lg font-medium text-gray-900">Tasks for Week of {weekDisplayText}</h2>
         <div className="flex space-x-2">
           <button
             onClick={toggleSelectionMode}
