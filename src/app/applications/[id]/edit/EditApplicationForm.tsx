@@ -1,10 +1,13 @@
 // src/app/applications/[id]/edit/EditApplicationForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { createClient } from '@/utils/supabase/client';
+import CustomSelect from '@/components/ui/CustomSelect';
+import CompanyForm from '@/app/target-companies/CompanyForm';
+import { Search, Plus, X } from 'lucide-react';
 
 interface Company {
   id: number;
@@ -21,8 +24,7 @@ interface ApplicationFormData {
   notes?: string;
 }
 
-// Updated status options
-const statusOptions = [
+const statusOptionsRaw = [
   'Saved',
   'Applied',
   'Assessment',
@@ -31,6 +33,11 @@ const statusOptions = [
   'Not Selected',
   'No Response 👻'
 ];
+
+const statusOptions = statusOptionsRaw.map(status => ({
+  value: status,
+  label: status
+}));
 
 interface EditApplicationFormProps {
   applicationId: number;
@@ -45,20 +52,28 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
+  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const companyDropdownRef = useRef<HTMLDivElement>(null);
+
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isDirty }
   } = useForm<ApplicationFormData>();
 
-  // Fetch data on mount
+  const selectedCompanyId = watch('companyId');
+  const selectedStatus = watch('status');
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         
-        // 1) Load companies
         const { data: companiesData, error: companiesError } = await supabase
           .from('companies')
           .select('id, name, logo')
@@ -66,8 +81,8 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
 
         if (companiesError) throw companiesError;
         setCompanies(companiesData || []);
+        setFilteredCompanies(companiesData || []);
 
-        // 2) Load the application
         const { data: application, error: applicationError } = await supabase
           .from('applications')
           .select('*')
@@ -76,7 +91,6 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
 
         if (applicationError) throw applicationError;
 
-        // Set form default values
         if (application) {
           setValue('companyId', application.company_id);
           setValue('position', application.position);
@@ -96,14 +110,72 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
     fetchData();
   }, [applicationId, setValue, supabase]);
 
-  // Handle form submit
+  useEffect(() => {
+    if (companySearchQuery.trim() === '') {
+      setFilteredCompanies(companies);
+    } else {
+      const filtered = companies.filter(company => 
+        company.name.toLowerCase().includes(companySearchQuery.toLowerCase())
+      );
+      setFilteredCompanies(filtered);
+    }
+  }, [companySearchQuery, companies]);
+
+  const getSelectedCompanyName = () => {
+    if (!selectedCompanyId) return '';
+    const company = companies.find(c => c.id === Number(selectedCompanyId));
+    return company ? company.name : '';
+  };
+
+  const handleSelectCompany = (companyId: number) => {
+    setValue('companyId', companyId, { shouldValidate: true, shouldDirty: true });
+    setShowCompanyDropdown(false);
+    setCompanySearchQuery('');
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(event.target as Node)) {
+        setShowCompanyDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showCompanyModal && companies.length > 0) {
+      const fetchCompanies = async () => {
+        try {
+          const { data: companiesData, error: companiesError } = await supabase
+            .from('companies')
+            .select('id, name, logo')
+            .order('name');
+          if (companiesError) throw companiesError;
+          if (companiesData) {
+             setCompanies(companiesData);
+             setFilteredCompanies(companiesData);
+            const potentiallyNewCompany = companiesData.find(c => !companies.some(old => old.id === c.id));
+             if (potentiallyNewCompany) {
+               handleSelectCompany(potentiallyNewCompany.id);
+             }
+          }
+        } catch (err) {
+          console.error('Error refetching companies:', err);
+        }
+      };
+      setTimeout(fetchCompanies, 100);
+    }
+  }, [showCompanyModal, companies, handleSelectCompany, supabase]);
+
   const onSubmit = async (data: ApplicationFormData) => {
     try {
       setIsLoading(true);
       setError(null);
       setSuccessMessage(null);
 
-      // Update the application
       const { error } = await supabase
         .from('applications')
         .update({
@@ -120,7 +192,6 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
 
       setSuccessMessage('Application updated successfully');
       
-      // Navigate back to the application details page after a short delay
       setTimeout(() => {
         router.refresh();
         router.push(`/applications/${applicationId}`);
@@ -133,7 +204,7 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !companies.length) {
     return <div className="flex justify-center items-center h-64">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
     </div>;
@@ -155,23 +226,99 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label htmlFor="companyId" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="companyId-display" className="block text-sm font-medium text-gray-700 mb-1">
             Company*
           </label>
-          <select
-            id="companyId"
-            className={`w-full rounded-md border ${
-              errors.companyId ? 'border-red-500' : 'border-gray-300'
-            } shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3`}
-            {...register('companyId', { required: 'Company is required' })}
-          >
-            <option value="">Select a company</option>
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative" ref={companyDropdownRef}>
+            <div
+              className={`w-full flex items-center rounded-md border ${
+                errors.companyId ? 'border-red-300 focus-within:border-red-500 focus-within:ring-red-500' : 'border-gray-300 focus-within:border-blue-500 focus-within:ring-blue-500'
+              } shadow-sm focus-within:ring-1 focus-within:outline-none px-3 py-2 cursor-pointer h-[42px]`}
+              onClick={() => setShowCompanyDropdown(true)}
+            >
+              {selectedCompanyId ? (
+                <div className="flex items-center justify-between w-full">
+                  <span>{getSelectedCompanyName()}</span>
+                  <button
+                    type="button"
+                    className="text-gray-400 hover:text-gray-500"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setValue('companyId', 0, { shouldValidate: true, shouldDirty: true });
+                      setCompanySearchQuery('');
+                      setShowCompanyDropdown(true);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center w-full">
+                  <Search className="h-4 w-4 text-gray-400 mr-2" />
+                  <input
+                    type="text"
+                    id="companyId-display"
+                    placeholder="Search or select a company..."
+                    className="w-full border-0 focus:ring-0 p-0"
+                    value={companySearchQuery}
+                    onChange={(e) => {
+                      setCompanySearchQuery(e.target.value);
+                      setShowCompanyDropdown(true);
+                      setValue('companyId', 0);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              )}
+            </div>
+
+            <input
+              type="hidden"
+              {...register('companyId', { required: 'Company is required', validate: value => value > 0 || 'Company is required' })}
+            />
+
+            {showCompanyDropdown && (
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-56 overflow-auto">
+                {filteredCompanies.length > 0 ? (
+                  <>
+                    {filteredCompanies.map((company) => (
+                      <div
+                        key={company.id}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => handleSelectCompany(company.id)}
+                      >
+                        {company.name}
+                      </div>
+                    ))}
+                    <div 
+                      className="px-4 py-2 border-t border-gray-200 text-blue-600 hover:bg-blue-50 cursor-pointer flex items-center" 
+                      onClick={() => {
+                        setShowCompanyModal(true);
+                        setShowCompanyDropdown(false);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add a new company
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="px-4 py-2 text-gray-500">No companies found</div>
+                    <div 
+                      className="px-4 py-2 border-t border-gray-200 text-blue-600 hover:bg-blue-50 cursor-pointer flex items-center" 
+                      onClick={() => {
+                        setShowCompanyModal(true);
+                        setShowCompanyDropdown(false);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add &ldquo;{companySearchQuery}&rdquo; as a new company
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           {errors.companyId && (
             <p className="mt-1 text-xs text-red-600">{errors.companyId.message}</p>
           )}
@@ -186,7 +333,7 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
             id="position"
             className={`w-full rounded-md border ${
               errors.position ? 'border-red-500' : 'border-gray-300'
-            } shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3`}
+            } shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 h-[42px]`}
             placeholder="e.g. Frontend Developer"
             {...register('position', { required: 'Position is required' })}
           />
@@ -199,20 +346,18 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
             Status*
           </label>
-          <select
-            id="status"
-            className={`w-full rounded-md border ${
-              errors.status ? 'border-red-500' : 'border-gray-300'
-            } shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3`}
-            {...register('status', { required: 'Status is required' })}
-          >
-            <option value="">Select status</option>
-            {statusOptions.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
+           <CustomSelect
+              id="status"
+              options={statusOptions}
+              value={selectedStatus}
+              onChange={(value) => setValue('status', value || '', { shouldValidate: true, shouldDirty: true })}
+              placeholder="Select status"
+              error={!!errors.status}
+            />
+            <input
+              type="hidden"
+              {...register('status', { required: 'Status is required' })}
+            />
           {errors.status && (
             <p className="mt-1 text-xs text-red-600">{errors.status.message}</p>
           )}
@@ -227,7 +372,7 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
             id="appliedDate"
             className={`w-full rounded-md border ${
               errors.appliedDate ? 'border-red-500' : 'border-gray-300'
-            } shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3`}
+            } shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 h-[42px]`}
             {...register('appliedDate', { required: 'Application date is required' })}
           />
           {errors.appliedDate && (
@@ -242,7 +387,7 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           <input
             type="url"
             id="jobPostingUrl"
-            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3"
+            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 h-[42px]"
             placeholder="e.g. https://company.com/jobs/123"
             {...register('jobPostingUrl')}
           />
@@ -281,6 +426,13 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           {isLoading ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
+
+      {showCompanyModal && (
+        <CompanyForm 
+          onClose={() => setShowCompanyModal(false)}
+          companyId={undefined}
+        />
+      )}
     </form>
   );
 }

@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { X, Calendar, Briefcase, Building, MapPin, DollarSign, Link, Search, Plus } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import CompanyForm from '@/app/target-companies/CompanyForm';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface Company {
   id: number;
@@ -26,7 +27,7 @@ interface ApplicationFormData {
 }
 
 // Updated status options
-const statusOptions = [
+const statusOptionsRaw = [
   'Saved',
   'Applied',
   'Assessment',
@@ -35,6 +36,12 @@ const statusOptions = [
   'Not Selected',
   'No Response 👻'
 ];
+
+// Map status options for CustomSelect
+const statusOptions = statusOptionsRaw.map(status => ({
+  value: status,
+  label: status
+}));
 
 interface ApplicationFormProps {
   onClose: () => void;
@@ -74,6 +81,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
     defaultValues: {
       // Use the helper function for the local date
       appliedDate: getLocalDateString(new Date()),
+      status: '', // Initialize status
     }
   });
 
@@ -430,20 +438,18 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
               <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
                 Status
               </label>
-              <select
+              <CustomSelect
                 id="status"
-                className={`w-full rounded-md border ${
-                  errors.status ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
-                } shadow-sm focus:outline-none px-3 py-2`}
+                options={statusOptions}
+                value={selectedStatus}
+                onChange={(value) => setValue('status', value || '', { shouldValidate: true })}
+                placeholder="Select status"
+                error={!!errors.status}
+              />
+              <input
+                type="hidden"
                 {...register('status', { required: 'Status is required' })}
-              >
-                <option value="">Select status</option>
-                {statusOptions.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
+              />
               {errors.status && (
                 <p className="mt-1 text-xs text-red-600">{errors.status.message}</p>
               )}

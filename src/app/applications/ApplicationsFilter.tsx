@@ -4,7 +4,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface ApplicationsFilterProps {
   statuses: string[];
@@ -61,6 +62,12 @@ export default function ApplicationsFilter({
     router.replace(`${pathname}${finalQueryString ? `?${finalQueryString}` : ''}`, { scroll: false });
   }, [debouncedQuery, status, pathname, router]);
 
+  // Map status options for CustomSelect, including the "All" option
+  const filterStatusOptions = [
+    { value: 'All', label: 'All Statuses' },
+    ...statuses.map(s => ({ value: s, label: s }))
+  ];
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setDebouncedQuery(searchQuery);
@@ -113,23 +120,15 @@ export default function ApplicationsFilter({
           )}
         </form>
 
-        {/* Status Filter */}
+        {/* Status Filter - Replaced with CustomSelect */}
         <div className="relative min-w-[160px]">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Filter className="h-4 w-4 text-gray-400" />
-          </div>
-          <select
+          <CustomSelect
+            options={filterStatusOptions}
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="block w-full pl-9 py-2 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 appearance-none"
-          >
-            <option value="All">All Statuses</option>
-            {statuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setStatus(value || 'All')}
+            placeholder="All Statuses"
+            id="status-filter"
+          />
         </div>
 
         {hasActiveFilters && (

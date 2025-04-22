@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import Image from 'next/image';
 import { X, Building, Globe, LinkIcon, Users, Star, AlertCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface TargetCompanyFormData {
   name: string;
@@ -19,11 +20,17 @@ interface TargetCompanyFormData {
   is_target: boolean;
 }
 
-const priorityOptions = [
+const priorityOptionsRaw = [
   'High',
   'Medium',
   'Low'
 ];
+
+// Map priority options for CustomSelect
+const priorityOptions = priorityOptionsRaw.map(p => ({
+  value: p,
+  label: p
+}));
 
 // We'll use the database for company suggestions instead of a hardcoded list
 
@@ -65,6 +72,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
   
   const companyName = watch('name');
   const logoUrl = watch('logo');
+  const selectedPriority = watch('priority');
 
   // Set initial focus on company name field
   useEffect(() => {
@@ -444,17 +452,18 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
                   Priority
                 </div>
               </label>
-              <select
+              <CustomSelect
                 id="priority"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
-                {...register('priority')}
-              >
-                {priorityOptions.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {priority}
-                  </option>
-                ))}
-              </select>
+                options={priorityOptions}
+                value={selectedPriority}
+                onChange={(value) => setValue('priority', value || 'Medium', { shouldValidate: true, shouldDirty: true })}
+                placeholder="Select priority"
+                error={!!errors.priority}
+              />
+              <input
+                type="hidden"
+                {...register('priority', { required: 'Priority is required' })}
+              />
             </div>
           </div>
 

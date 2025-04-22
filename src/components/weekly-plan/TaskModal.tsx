@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { X, Calendar, Link2, AlertCircle, FileText, BookOpen, Users } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { Task, TASK_STATUS } from './TaskBoard';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface TaskModalProps {
   task: Task | null;
@@ -30,6 +31,13 @@ const TASK_TYPES = [
   { id: 'research', name: 'Research', icon: <BookOpen className="h-4 w-4 mr-1.5 text-gray-500" /> },
   { id: 'networking', name: 'Networking', icon: <Users className="h-4 w-4 mr-1.5 text-gray-500" /> },
   { id: 'application', name: 'Job Application', icon: <Link2 className="h-4 w-4 mr-1.5 text-gray-500" /> }
+];
+
+// Task status options for CustomSelect
+const taskStatusOptions = [
+  { value: TASK_STATUS.TODO, label: 'To Do' },
+  { value: TASK_STATUS.IN_PROGRESS, label: 'Working On' },
+  { value: TASK_STATUS.DONE, label: 'Done' },
 ];
 
 export default function TaskModal({ 
@@ -240,16 +248,13 @@ export default function TaskModal({
               <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
                 Status
               </label>
-              <select
+              <CustomSelect
                 id="status"
+                options={taskStatusOptions}
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none px-3 py-2"
-              >
-                <option value={TASK_STATUS.TODO}>To Do</option>
-                <option value={TASK_STATUS.IN_PROGRESS}>Working On</option>
-                <option value={TASK_STATUS.DONE}>Done</option>
-              </select>
+                onChange={(value) => setStatus(value || TASK_STATUS.TODO)}
+                placeholder="Select status"
+              />
             </div>
             
             <div>

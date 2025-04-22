@@ -20,19 +20,7 @@ export default function Sidebar() {
       </div>
       
       <nav className="flex-1 pt-4 flex flex-col px-3 space-y-1 overflow-y-auto">
-        {/* Weekly Plan link added at the top */}
-        <Link 
-          href="/weekly-plan"
-          className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md ${
-            isActive('/weekly-plan') 
-              ? 'bg-purple-50 text-purple-700' 
-              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-          }`}
-        >
-          <CheckSquare className={`h-5 w-5 mr-3 ${isActive('/weekly-plan') ? 'text-purple-500' : 'text-gray-400'}`} />
-          <span>Weekly Plan</span>
-        </Link>
-        
+        {/* Dashboard link moved to the top */}
         <Link 
           href="/"
           className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md ${
@@ -43,6 +31,19 @@ export default function Sidebar() {
         >
           <LayoutDashboard className={`h-5 w-5 mr-3 ${isActive('/') ? 'text-purple-500' : 'text-gray-400'}`} />
           <span>Dashboard</span>
+        </Link>
+        
+        {/* Weekly Plan link moved below Dashboard */}
+        <Link 
+          href="/weekly-plan"
+          className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md ${
+            isActive('/weekly-plan') 
+              ? 'bg-purple-50 text-purple-700' 
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+          }`}
+        >
+          <CheckSquare className={`h-5 w-5 mr-3 ${isActive('/weekly-plan') ? 'text-purple-500' : 'text-gray-400'}`} />
+          <span>Weekly Plan</span>
         </Link>
         
         <Link 

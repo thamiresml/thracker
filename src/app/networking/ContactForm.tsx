@@ -9,6 +9,7 @@ import { createClient } from '@/utils/supabase/client';
 import { CONTACT_STATUSES } from '@/types/common';
 import { ApiError, Company } from '@/types/common';
 import CompanyForm from '@/app/target-companies/CompanyForm';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface ContactFormData {
   name: string;
@@ -28,6 +29,12 @@ interface ContactFormProps {
   initialData?: Record<string, unknown>;
   preselectedCompanyId?: number;
 }
+
+// Map contact status options for CustomSelect
+const contactStatusOptions = CONTACT_STATUSES.map(status => ({
+  value: status,
+  label: status
+}));
 
 export default function ContactForm({ 
   onClose, 
@@ -65,6 +72,8 @@ export default function ContactForm({
   } = useForm<ContactFormData>({
     defaultValues: defaultValues as ContactFormData
   });
+
+  const selectedStatus = watch('status');
 
   // Fetch data on mount
   useEffect(() => {
@@ -469,17 +478,21 @@ export default function ContactForm({
               <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
                 Status
               </label>
-              <select
+              <CustomSelect
                 id="status"
-                className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none px-3 py-2"
+                options={contactStatusOptions}
+                value={selectedStatus}
+                onChange={(value) => setValue('status', value || '', { shouldValidate: true })}
+                placeholder="Select status"
+                error={!!errors.status}
+              />
+              <input
+                type="hidden"
                 {...register('status', { required: 'Status is required' })}
-              >
-                {CONTACT_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
+              />
+              {errors.status && (
+                <p className="mt-1 text-xs text-red-600">{errors.status.message}</p>
+              )}
             </div>
           </div>
 
