@@ -59,9 +59,11 @@ export default function InteractionForm({
     notes: initialData.notes || '',
     follow_up_date: initialData.follow_up_date || null
   } : {
+    contact_id: preselectedContactId || undefined,
     interaction_date: new Date().toISOString().split('T')[0],
     interaction_type: 'Email',
-    follow_up_date: null
+    follow_up_date: null,
+    notes: ''
   };
 
   const {
@@ -159,7 +161,7 @@ export default function InteractionForm({
   }, [interactionId, setValue, supabase, preselectedContactId, initialData]);
 
   // Handle form submit
-  const onSubmit = async (data: InteractionFormData) => {
+  const onSubmit = handleSubmit(async (data: InteractionFormData) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -223,7 +225,7 @@ export default function InteractionForm({
     } finally {
       setIsLoading(false);
     }
-  };
+  });
 
   return (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
@@ -248,7 +250,7 @@ export default function InteractionForm({
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={onSubmit} className="space-y-5">
           <div>
             <label htmlFor="contact_id" className="block text-sm font-medium text-gray-700 mb-1">
               <div className="flex items-center">
@@ -264,12 +266,22 @@ export default function InteractionForm({
               {...register('contact_id', { required: 'Contact is required' })}
               disabled={!!preselectedContactId}
             >
-              <option value="">Select a contact</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name} {contact.company?.name ? `(${contact.company.name})` : ''}
-                </option>
-              ))}
+              {preselectedContactId ? (
+                contacts.filter(contact => contact.id === preselectedContactId).map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.name} {contact.company?.name ? `(${contact.company.name})` : ''}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="">Select a contact</option>
+                  {contacts.map((contact) => (
+                    <option key={contact.id} value={contact.id}>
+                      {contact.name} {contact.company?.name ? `(${contact.company.name})` : ''}
+                    </option>
+                  ))}
+                </>
+              )}
             </select>
             {errors.contact_id && (
               <p className="mt-1 text-xs text-red-600">
