@@ -48,7 +48,7 @@ export default function RegisterForm() {
       if (data.user?.identities?.length === 0) {
         setMessage('An account with this email already exists. Please log in instead.');
       } else {
-        setMessage('Check your email for the confirmation link.');
+        setMessage('Account created successfully! You can now log in with your credentials.');
       }
     } catch (error: unknown) {
       const apiError = error as { message: string };

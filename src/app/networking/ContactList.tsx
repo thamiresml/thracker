@@ -4,10 +4,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronUp, ChevronDown, Mail, MessageSquare, Phone, Linkedin, 
+import { ChevronUp, ChevronDown, ChevronsUpDown, Mail, MessageSquare, Phone, Linkedin, 
          GraduationCap, Eye, Edit } from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import { Contact } from '@/types/networking';
+import { format } from 'date-fns'; // Import date-fns for formatting
 
 interface ContactsListProps {
   contacts: Contact[];
@@ -24,24 +25,38 @@ export default function ContactsList({
   
   // Function to handle column header click for sorting
   const handleSort = (column: string) => {
-    // If clicking the same column, toggle order, else set to that column with default desc
-    const newOrder = (sortBy === column && sortOrder === 'desc') ? 'asc' : 'desc';
+    // Always read the *current* state from the URLSearchParams at the moment of the click
+    const currentParams = new URLSearchParams(window.location.search);
+    const currentSortBy = currentParams.get('sortBy') || 'last_interaction_date'; // Default if not present
+    const currentSortOrder = currentParams.get('sortOrder') || 'desc'; // Default if not present
+
+    let newOrder = 'desc'; // Default to descending when switching to a new column
+    if (currentSortBy === column) {
+      // If it's the same column, toggle the order
+      newOrder = currentSortOrder === 'desc' ? 'asc' : 'desc'; 
+    }
     
-    // Update URL with new sort parameters
-    const params = new URLSearchParams(window.location.search);
+    // Create new params for the push, starting fresh
+    const params = new URLSearchParams(window.location.search); // Read fresh again
     params.set('sortBy', column);
     params.set('sortOrder', newOrder);
     
-    router.push(`/networking?${params.toString()}`);
+    // Push the new URL state
+    router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false }); // Add scroll: false
   };
   
-  // Helper to render sort indicator
+  // Helper to render sort indicator inline
   const renderSortIndicator = (column: string) => {
-    if (sortBy !== column) return null;
-    
-    return sortOrder === 'asc' 
-      ? <ChevronUp className="w-4 h-4 ml-1" /> 
-      : <ChevronDown className="w-4 h-4 ml-1" />;
+    if (sortBy === column) {
+      // Active sort column: Show specific direction with active color
+      // ChevronDown for ASC (A-Z, older date), ChevronUp for DESC (Z-A, newer date)
+      return sortOrder === 'asc' 
+        ? <ChevronDown className="w-4 h-4 ml-1 inline-block text-indigo-600" /> 
+        : <ChevronUp className="w-4 h-4 ml-1 inline-block text-indigo-600" />;
+    } else {
+      // Inactive sortable column: Show default indicator with muted color
+      return <ChevronsUpDown className="w-4 h-4 ml-1 inline-block text-gray-400" />;
+    }
   };
   
   // Check if we have contacts to display
@@ -58,6 +73,7 @@ export default function ContactsList({
       <table className="min-w-full divide-y divide-gray-200 table-fixed">
         <thead className="bg-gray-50">
           <tr>
+            {/* Contact Header - Always shows indicator */}
             <th 
               scope="col" 
               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-1/4"
@@ -68,26 +84,26 @@ export default function ContactsList({
                 {renderSortIndicator('name')}
               </div>
             </th>
+            {/* Company Header - Always shows indicator */}
             <th 
               scope="col" 
               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-1/4"
-              onClick={() => handleSort('companies.name')}
+              onClick={() => handleSort('company.name')} // Ensure this matches filter dropdown value
             >
               <div className="flex items-center">
                 Company
-                {renderSortIndicator('companies.name')}
+                {renderSortIndicator('company.name')}
               </div>
             </th>
+            {/* Status Header - Not sortable, no indicator */}
             <th 
               scope="col" 
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-1/6"
-              onClick={() => handleSort('status')}
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
             >
-              <div className="flex items-center">
-                Status
-                {renderSortIndicator('status')}
-              </div>
+              Status
+              {/* Removed sort indicator rendering for Status */}
             </th>
+            {/* Last Interaction Header - Always shows indicator */}
             <th 
               scope="col" 
               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-1/6"
@@ -98,12 +114,14 @@ export default function ContactsList({
                 {renderSortIndicator('last_interaction_date')}
               </div>
             </th>
+            {/* Contact Options Header - Not sortable */}
             <th 
               scope="col" 
               className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12"
             >
               Contact Options
             </th>
+             {/* Actions Header - Not sortable */}
             <th 
               scope="col" 
               className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12"
@@ -231,32 +249,31 @@ export default function ContactsList({
 }
 
 // Helper functions
-function getStatusClass(status: string) {
+function getStatusClass(status: string): string {
   switch (status) {
-    case 'Active':
-      return 'bg-green-100 text-green-800';
     case 'To Reach Out':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-yellow-100 text-yellow-800'; // Keep yellow
+    case 'Scheduled':
+      return 'bg-purple-100 text-purple-800'; // New: Use purple for scheduled
     case 'Connected':
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-green-100 text-green-800'; // Changed from blue to green
     case 'Following Up':
-      return 'bg-indigo-100 text-indigo-800';
+      return 'bg-indigo-100 text-indigo-800'; // Keep indigo
     case 'Dormant':
-      return 'bg-gray-100 text-gray-800';
-    case 'Archived':
-      return 'bg-red-100 text-red-800';
+      return 'bg-gray-100 text-gray-800'; // Keep gray
+    // Removed Active and Archived
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-100 text-gray-800'; // Default fallback
   }
 }
 
-function formatDate(dateString: string) {
-  if (!dateString) return 'Unknown';
-  
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  }).format(date);
+// Format date string (e.g., '2024-05-20T10:00:00Z' to 'May 20, 2024')
+function formatDate(dateString: string): string {
+  try {
+    // Parse the date string and format it
+    return format(new Date(dateString), 'MMM d, yyyy');
+  } catch (error) {
+    console.error("Error formatting date:", dateString, error);
+    return 'Invalid Date'; // Fallback for invalid dates
+  }
 }

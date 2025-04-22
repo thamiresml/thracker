@@ -63,17 +63,37 @@ export default async function NetworkingPage({
     contacts = contactsData || [];
   }
 
+  // Get company data for all contacts
+  const { data: companiesData } = await supabase
+    .from('companies')
+    .select('id, name, logo')
+    .in('id', contacts.map(c => c.company_id).filter(Boolean))
+    .order('name');
+  
+  // Create a map of company data by id for easy lookup
+  const companiesMap = (companiesData || []).reduce((map, company) => {
+    map[company.id] = company;
+    return map;
+  }, {} as Record<string | number, {
+    id: number;
+    name: string;
+    logo?: string;
+  }>);
+
   // Apply filters to the contacts
   let filteredContacts = contacts || [];
   
   if (query) {
     const lowerQuery = query.toLowerCase();
-    filteredContacts = filteredContacts.filter(
-      contact => 
-        contact.name.toLowerCase().includes(lowerQuery) || 
+    filteredContacts = filteredContacts.filter(contact => {
+      // Check if company name matches the query
+      const companyName = companiesMap[contact.company_id]?.name || '';
+      
+      return contact.name.toLowerCase().includes(lowerQuery) || 
         (contact.role && contact.role.toLowerCase().includes(lowerQuery)) || 
-        (contact.email && contact.email.toLowerCase().includes(lowerQuery))
-    );
+        (contact.email && contact.email.toLowerCase().includes(lowerQuery)) ||
+        companyName.toLowerCase().includes(lowerQuery);
+    });
   }
   
   if (status) {
@@ -91,23 +111,6 @@ export default async function NetworkingPage({
   // Get additional data for each contact
   const contactIds = filteredContacts.map(contact => contact.id);
   
-  // Get company data for the filtered contacts
-  const { data: companiesData } = await supabase
-    .from('companies')
-    .select('id, name, logo')
-    .in('id', filteredContacts.map(c => c.company_id))
-    .order('name');
-  
-  // Create a map of company data by id for easy lookup
-  const companiesMap = (companiesData || []).reduce((map, company) => {
-    map[company.id] = company;
-    return map;
-  }, {} as Record<string | number, {
-    id: number;
-    name: string;
-    logo?: string;
-  }>);
-
   // Get interactions data for the filtered contacts
   const { data: interactionsData } = await supabase
     .from('interactions')
@@ -172,7 +175,7 @@ export default async function NetworkingPage({
       const result = dateA.getTime() - dateB.getTime();
       return sortOrder === 'asc' ? result : -result;
     });
-  } else if (sortBy === 'companies.name') {
+  } else if (sortBy === 'company.name') {
     processedContacts.sort((a, b) => {
       const nameA = a.company?.name || '';
       const nameB = b.company?.name || '';
@@ -201,7 +204,7 @@ export default async function NetworkingPage({
   
   // Default statuses list
   const defaultStatuses = [
-    'Active', 'To Reach Out', 'Connected', 'Following Up', 'Dormant', 'Archived'
+    'To Reach Out', 'Scheduled', 'Connected', 'Following Up', 'Dormant'
   ];
   
   // Add default statuses if they don't exist in the data
@@ -210,13 +213,6 @@ export default async function NetworkingPage({
   // Convert to sorted array
   const availableStatuses = Array.from(uniqueStatuses).sort() as string[];
   
-  // Fetch companies for filter
-  const { data: companies } = await supabase
-    .from('companies')
-    .select('id, name')
-    .eq('user_id', user.id)
-    .order('name');
-  
   return (
     <DashboardLayout>
       <PageHeader 
@@ -224,26 +220,24 @@ export default async function NetworkingPage({
         action={<AddContactButton />}
       />
       
-      {processedContacts.length === 0 && !query && !status && !companyId ? (
+      {/* Show Empty State only if the user has NO contacts overall */}
+      {contacts.length === 0 ? (
         <ContactsEmptyState />
       ) : (
+        /* Otherwise, always show filters and the list (list handles empty filtered results) */
         <div className="space-y-6">
           {/* Search and Filters */}
           <ContactsFilter 
             statuses={availableStatuses}
-            companies={companies || []}
             currentStatus={status}
-            currentCompanyId={companyId}
             currentQuery={query}
             currentIsAlumni={isAlumni}
-            currentSortBy={sortBy}
-            currentSortOrder={sortOrder}
           />
           
           {/* Contacts List */}
           <div className="bg-white shadow-sm rounded-lg overflow-hidden">
             <ContactsList 
-              contacts={processedContacts} 
+              contacts={processedContacts}
               sortBy={sortBy}
               sortOrder={sortOrder}
             />
