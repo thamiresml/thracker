@@ -93,3 +93,10 @@ export interface Company {
     'LinkedIn Message',
     'Other'
   ];
+
+// Add Task Status constants
+export const TASK_STATUS = {
+  TODO: 'to_do',
+  IN_PROGRESS: 'in_progress',
+  DONE: 'done'
+};

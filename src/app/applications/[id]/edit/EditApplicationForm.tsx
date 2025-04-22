@@ -1,7 +1,7 @@
 // src/app/applications/[id]/edit/EditApplicationForm.tsx
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { createClient } from '@/utils/supabase/client';
@@ -127,11 +127,11 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
     return company ? company.name : '';
   };
 
-  const handleSelectCompany = (companyId: number) => {
+  const handleSelectCompany = useCallback((companyId: number) => {
     setValue('companyId', companyId, { shouldValidate: true, shouldDirty: true });
     setShowCompanyDropdown(false);
     setCompanySearchQuery('');
-  };
+  }, [setValue]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

@@ -4,7 +4,8 @@
 import { useState, useEffect } from 'react';
 import { X, Calendar, Link2, AlertCircle, FileText, BookOpen, Users } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
-import { Task, TASK_STATUS } from './TaskBoard';
+import { Task } from './TaskBoard'; // Import Task interface
+import { TASK_STATUS } from '@/types/common'; // Import TASK_STATUS from common types
 import CustomSelect from '@/components/ui/CustomSelect';
 
 interface TaskModalProps {
@@ -33,13 +34,6 @@ const TASK_TYPES = [
   { id: 'application', name: 'Job Application', icon: <Link2 className="h-4 w-4 mr-1.5 text-gray-500" /> }
 ];
 
-// Task status options for CustomSelect
-const taskStatusOptions = [
-  { value: TASK_STATUS.TODO, label: 'To Do' },
-  { value: TASK_STATUS.IN_PROGRESS, label: 'Working On' },
-  { value: TASK_STATUS.DONE, label: 'Done' },
-];
-
 export default function TaskModal({ 
   task, 
   onClose, 
@@ -49,6 +43,13 @@ export default function TaskModal({
   weekStartDate
 }: TaskModalProps) {
   const supabase = createClient();
+  
+  // Define taskStatusOptions INSIDE the component
+  const taskStatusOptions = [
+    { value: TASK_STATUS.TODO, label: 'To Do' },
+    { value: TASK_STATUS.IN_PROGRESS, label: 'Working On' },
+    { value: TASK_STATUS.DONE, label: 'Done' },
+  ];
   
   // Form state
   const [title, setTitle] = useState(task?.title || '');

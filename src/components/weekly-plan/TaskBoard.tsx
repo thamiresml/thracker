@@ -8,13 +8,7 @@ import {
 import { createClient } from '@/utils/supabase/client';
 import TaskModal from './TaskModal';
 import { TaskItem } from './TaskItem';
-
-// Task status constants
-export const TASK_STATUS = {
-  TODO: 'to_do',
-  IN_PROGRESS: 'in_progress',
-  DONE: 'done'
-};
+import { TASK_STATUS } from '@/types/common';
 
 // Task type definition
 export interface Task {
