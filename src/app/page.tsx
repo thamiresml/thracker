@@ -19,6 +19,8 @@ interface Application {
   job_posting_url?: string;
   user_id: string;
   company_id: number;
+  created_at?: string;
+  updated_at?: string;
   companies?: {
     id: number;
     name: string;
@@ -62,6 +64,7 @@ export default async function Dashboard() {
       companies (id, name, logo)
     `)
     .eq('user_id', user.id)
+    .neq('status', 'Saved')  // Exclude saved applications
     .order('applied_date', { ascending: false })
     .limit(5);
 
@@ -74,7 +77,7 @@ export default async function Dashboard() {
     `)
     .eq('user_id', user.id)
     .eq('status', 'Saved')
-    .order('applied_date', { ascending: false });
+    .order('created_at', { ascending: false });  // Order by created_at instead of applied_date
 
   // Get contacts for companies
   const { data: contacts } = await supabase
@@ -279,7 +282,7 @@ export default async function Dashboard() {
                 <div className="mt-3 flex items-center justify-between">
                   <div className="flex items-center text-xs text-gray-500">
                     <Clock className="h-3 w-3 mr-1" />
-                    {formatDate(app.applied_date)}
+                    {app.created_at ? formatDate(app.created_at) : 'N/A'}
                   </div>
                   <span className="text-xs text-blue-600 hover:text-blue-800">
                     View Details →
@@ -345,7 +348,7 @@ export default async function Dashboard() {
                         {app.status}
                       </span>
                       <p className="text-xs text-gray-500 mt-1">
-                        {formatDate(app.applied_date)}
+                        {app.created_at ? formatDate(app.created_at) : 'N/A'}
                       </p>
                     </div>
                   </div>
