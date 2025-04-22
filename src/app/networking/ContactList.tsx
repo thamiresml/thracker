@@ -2,11 +2,10 @@
 
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronUp, ChevronDown, Mail, MessageSquare, Phone, Linkedin, 
-         GraduationCap, MoreHorizontal } from 'lucide-react';
+         GraduationCap, Eye, Edit } from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import { Contact } from '@/types/networking';
 
@@ -22,7 +21,6 @@ export default function ContactsList({
   sortOrder
 }: ContactsListProps) {
   const router = useRouter();
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   
   // Function to handle column header click for sorting
   const handleSort = (column: string) => {
@@ -197,61 +195,31 @@ export default function ContactsList({
                       <Linkedin className="h-4 w-4" />
                     </a>
                   )}
-                  <Link 
-                    href={`/networking/contacts/${contact.id}/add-interaction`} 
-                    className="text-gray-500 hover:text-indigo-600" 
-                    title="Add Interaction"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                  </Link>
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <div className="relative inline-block text-left">
-                  <div>
-                    <button
-                      onClick={() => setOpenMenuId(openMenuId === contact.id ? null : contact.id)}
-                      className="flex items-center text-gray-400 hover:text-gray-600"
-                      id={`options-menu-${contact.id}`}
-                      aria-expanded="true"
-                      aria-haspopup="true"
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                    </button>
-                  </div>
-                  
-                  {openMenuId === contact.id && (
-                    <div 
-                      className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
-                      role="menu"
-                      aria-orientation="vertical"
-                      aria-labelledby={`options-menu-${contact.id}`}
-                    >
-                      <div className="py-1" role="none">
-                        <Link
-                          href={`/networking/contacts/${contact.id}`}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                          role="menuitem"
-                        >
-                          View Details
-                        </Link>
-                        <Link
-                          href={`/networking/contacts/${contact.id}/edit`}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                          role="menuitem"
-                        >
-                          Edit Contact
-                        </Link>
-                        <Link
-                          href={`/networking/contacts/${contact.id}/add-interaction`}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                          role="menuitem"
-                        >
-                          Add Interaction
-                        </Link>
-                      </div>
-                    </div>
-                  )}
+                <div className="flex items-center justify-end space-x-3">
+                  <Link
+                    href={`/networking/contacts/${contact.id}`}
+                    className="text-gray-400 hover:text-indigo-600"
+                    title="View Details"
+                  >
+                    <Eye className="h-5 w-5" />
+                  </Link>
+                  <Link
+                    href={`/networking/contacts/${contact.id}/edit`}
+                    className="text-gray-400 hover:text-indigo-600"
+                    title="Edit Contact"
+                  >
+                    <Edit className="h-5 w-5" />
+                  </Link>
+                  <Link 
+                    href={`/networking/contacts/${contact.id}/add-interaction`} 
+                    className="text-gray-400 hover:text-indigo-600" 
+                    title="Add Interaction"
+                  >
+                    <MessageSquare className="h-5 w-5" />
+                  </Link>
                 </div>
               </td>
             </tr>

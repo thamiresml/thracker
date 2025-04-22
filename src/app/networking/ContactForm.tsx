@@ -1,18 +1,19 @@
 // src/app/networking/ContactForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { X, Building, User, Mail, Phone, Linkedin, MessageSquare, GraduationCap, AlertCircle } from 'lucide-react';
+import { X, Building, User, Mail, Phone, Linkedin, MessageSquare, GraduationCap, AlertCircle, Search, Plus } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { CONTACT_STATUSES } from '@/types/common';
 import { ApiError, Company } from '@/types/common';
+import CompanyForm from '@/app/target-companies/CompanyForm';
 
 interface ContactFormData {
   name: string;
   role?: string;
-  company_id: number;
+  company_id?: number;
   email?: string;
   phone?: string;
   linkedin?: string;
@@ -40,6 +41,11 @@ export default function ContactForm({
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
+  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Default values for the form
   const defaultValues = initialData ? {
@@ -54,7 +60,8 @@ export default function ContactForm({
     register,
     handleSubmit,
     setValue,
-    formState: { errors }
+    formState: { errors },
+    watch
   } = useForm<ContactFormData>({
     defaultValues: defaultValues as ContactFormData
   });
@@ -108,6 +115,82 @@ export default function ContactForm({
     fetchData();
   }, [contactId, setValue, supabase, initialData, preselectedCompanyId]);
 
+  // Filter companies based on search query
+  useEffect(() => {
+    if (companySearchQuery.trim() === '') {
+      setFilteredCompanies(companies);
+    } else {
+      const filtered = companies.filter(company => 
+        company.name.toLowerCase().includes(companySearchQuery.toLowerCase())
+      );
+      setFilteredCompanies(filtered);
+    }
+  }, [companySearchQuery, companies]);
+
+  // Get selected company name
+  const getSelectedCompanyName = () => {
+    const selectedId = watch('company_id');
+    if (!selectedId) return '';
+    const company = companies.find(c => c.id === selectedId);
+    return company ? company.name : '';
+  };
+
+  // Handle company selection from dropdown
+  const handleSelectCompany = (companyId: number) => {
+    setValue('company_id', companyId);
+    setShowCompanyDropdown(false);
+    setCompanySearchQuery('');
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowCompanyDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Effect to refetch companies after CompanyForm modal is closed
+  useEffect(() => {
+    // If the modal is not showing and we previously had it open, 
+    // we should refresh the companies list in case one was added
+    if (!showCompanyModal && companies.length > 0) {
+      const fetchCompanies = async () => {
+        try {
+          const { data: companiesData, error: companiesError } = await supabase
+            .from('companies')
+            .select('id, name')
+            .order('name');
+
+          if (companiesError) throw companiesError;
+          
+          if (companiesData) {
+            setCompanies(companiesData);
+            // If there are new companies, select the newest one (last in the array)
+            const newCompanies = companiesData.filter(
+              comp => !companies.some(oldComp => oldComp.id === comp.id)
+            );
+            
+            if (newCompanies.length > 0) {
+              // Select the newly created company
+              setValue('company_id', newCompanies[0].id);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching companies:', err);
+        }
+      };
+
+      fetchCompanies();
+    }
+  }, [showCompanyModal, supabase, setValue, companies]);
+
   // Handle form submit
   const onSubmit = async (data: ContactFormData) => {
     try {
@@ -149,8 +232,13 @@ export default function ContactForm({
         if (error) throw error;
       }
 
-      // Refresh page & close
+      // Refresh page data
       router.refresh();
+
+      // Wait a bit to ensure the data is refreshed before closing
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Close the form
       onClose();
     } catch (error) {
       const apiError = error as ApiError;
@@ -226,21 +314,98 @@ export default function ContactForm({
                   Company*
                 </div>
               </label>
-              <select
-                id="company_id"
-                className={`w-full rounded-md border ${
-                  errors.company_id ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-                } shadow-sm focus:outline-none px-3 py-2`}
-                {...register('company_id', { required: 'Company is required' })}
-                disabled={!!preselectedCompanyId}
-              >
-                <option value="">Select a company</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative" ref={dropdownRef}>
+                {/* Selected company display or search input */}
+                <div
+                  className={`w-full flex items-center rounded-md border ${
+                    errors.company_id ? 'border-red-300 focus-within:border-red-500 focus-within:ring-red-500' : 'border-gray-300 focus-within:border-indigo-500 focus-within:ring-indigo-500'
+                  } shadow-sm focus-within:ring-1 focus-within:outline-none px-3 py-2 cursor-pointer`}
+                  onClick={() => !preselectedCompanyId && setShowCompanyDropdown(true)}
+                >
+                  {watch('company_id') ? (
+                    <div className="flex items-center justify-between w-full">
+                      <span>{getSelectedCompanyName()}</span>
+                      {!preselectedCompanyId && (
+                        <button
+                          type="button"
+                          className="text-gray-400 hover:text-gray-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setValue('company_id', undefined);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center w-full">
+                      <Search className="h-4 w-4 text-gray-400 mr-2" />
+                      <input
+                        type="text"
+                        placeholder="Search companies..."
+                        className="w-full border-0 focus:ring-0 p-0"
+                        value={companySearchQuery}
+                        onChange={(e) => {
+                          setCompanySearchQuery(e.target.value);
+                          setShowCompanyDropdown(true);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        disabled={!!preselectedCompanyId}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Hidden input for form validation */}
+                <input
+                  type="hidden"
+                  {...register('company_id', { required: 'Company is required' })}
+                />
+                
+                {/* Company dropdown */}
+                {showCompanyDropdown && !preselectedCompanyId && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-56 overflow-auto">
+                    {filteredCompanies.length > 0 ? (
+                      <>
+                        {filteredCompanies.map((company) => (
+                          <div
+                            key={company.id}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => handleSelectCompany(company.id)}
+                          >
+                            {company.name}
+                          </div>
+                        ))}
+                        <div 
+                          className="px-4 py-2 border-t border-gray-200 text-indigo-600 hover:bg-indigo-50 cursor-pointer flex items-center" 
+                          onClick={() => {
+                            setShowCompanyModal(true);
+                            setShowCompanyDropdown(false);
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add a new company
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="px-4 py-2 text-gray-500">No companies found</div>
+                        <div 
+                          className="px-4 py-2 border-t border-gray-200 text-indigo-600 hover:bg-indigo-50 cursor-pointer flex items-center" 
+                          onClick={() => {
+                            setShowCompanyModal(true);
+                            setShowCompanyDropdown(false);
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add &ldquo;{companySearchQuery}&rdquo; as a new company
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
               {errors.company_id && (
                 <p className="mt-1 text-xs text-red-600">
                   {errors.company_id.message}
@@ -351,20 +516,39 @@ export default function ContactForm({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              disabled={isLoading}
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
-              {isLoading ? 'Saving...' : contactId ? 'Update Contact' : 'Save Contact'}
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : contactId ? 'Update Contact' : 'Save Contact'}
             </button>
           </div>
         </form>
       </div>
+
+      {/* Add Company Modal */}
+      {showCompanyModal && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-[60]">
+          <CompanyForm 
+            onClose={() => setShowCompanyModal(false)}
+            initialData={{ name: companySearchQuery }}
+          />
+        </div>
+      )}
     </div>
   );
 }

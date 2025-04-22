@@ -1,27 +1,19 @@
 // src/app/networking/InteractionForm.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { X, Calendar, User, MessageSquare, AlertCircle } from 'lucide-react';
+import { X, Calendar, User, MessageSquare, AlertCircle, Search } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { INTERACTION_TYPES } from '@/types/networking';
-
-
-interface Contact {
-  id: number;
-  name: string;
-  company?: {
-    name: string;
-  };
-}
+import ContactSelectField from '@/app/networking/components/ContactSelectField';
 
 interface InteractionFormData {
-  contact_id: number;
+  contact_id: number | undefined;
   interaction_date: string;
   interaction_type: string;
-  notes?: string;
+  notes: string;
   follow_up_date?: string | null;
 }
 
@@ -47,9 +39,14 @@ export default function InteractionForm({
   const router = useRouter();
   const supabase = createClient();
 
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // For interaction type dropdown
+  const [interactionTypeSearchQuery, setInteractionTypeSearchQuery] = useState('');
+  const [filteredInteractionTypes, setFilteredInteractionTypes] = useState<string[]>(INTERACTION_TYPES);
+  const [showInteractionTypeDropdown, setShowInteractionTypeDropdown] = useState(false);
+  const interactionTypeDropdownRef = useRef<HTMLDivElement>(null);
 
   // Initialize form with initialData or defaults
   const defaultValues = initialData ? {
@@ -70,67 +67,24 @@ export default function InteractionForm({
     register,
     handleSubmit,
     setValue,
-    formState: { errors }
+    formState: { errors },
+    watch
   } = useForm<InteractionFormData>({
     defaultValues
   });
 
-  // Fetch data on mount
+  // Set the preselectedContactId on mount if provided
+  useEffect(() => {
+    if (preselectedContactId) {
+      setValue('contact_id', preselectedContactId);
+    }
+  }, [preselectedContactId, setValue]);
+
+  // Fetch existing interaction data if editing
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1) Load contacts
-        const { data: contactsData, error: contactsError } = await supabase
-          .from('contacts')
-          .select(`
-            id,
-            name,
-            company:companies(name)
-          `)
-          .order('name');
-
-        if (contactsError) throw contactsError;
-        
-        // Transform the data to match our Contact interface
-        const formattedContacts: Contact[] = [];
-        
-        contactsData?.forEach((contact: {
-          id: number;
-          name: string;
-          company: { name: string } | Array<{ name: string }> | null;
-        }) => {
-          const formattedContact: Contact = {
-            id: contact.id,
-            name: contact.name
-          };
-          
-          // Handle company data if it exists
-          if (contact.company && typeof contact.company === 'object') {
-            // If company is a single object
-            if (!Array.isArray(contact.company)) {
-              formattedContact.company = {
-                name: typeof contact.company.name === 'string' ? contact.company.name : ''
-              };
-            } 
-            // If company is an array with one object
-            else if (Array.isArray(contact.company) && contact.company.length > 0) {
-              formattedContact.company = {
-                name: typeof contact.company[0].name === 'string' ? contact.company[0].name : ''
-              };
-            }
-          }
-          
-          formattedContacts.push(formattedContact);
-        });
-        
-        setContacts(formattedContacts);
-
-        // If preselectedContactId is provided, set the form value
-        if (preselectedContactId) {
-          setValue('contact_id', preselectedContactId);
-        }
-
-        // 2) If editing and no initialData provided, load existing interaction
+        // If editing and no initialData provided, load existing interaction
         if (interactionId && !initialData) {
           const { data: interaction, error: interactionError } = await supabase
             .from('interactions')
@@ -158,7 +112,51 @@ export default function InteractionForm({
     };
 
     fetchData();
-  }, [interactionId, setValue, supabase, preselectedContactId, initialData]);
+  }, [interactionId, setValue, supabase, initialData]);
+  
+  // Filter interaction types based on search query
+  useEffect(() => {
+    if (interactionTypeSearchQuery.trim() === '') {
+      setFilteredInteractionTypes(INTERACTION_TYPES);
+    } else {
+      const query = interactionTypeSearchQuery.toLowerCase();
+      const filtered = INTERACTION_TYPES.filter(type => 
+        type.toLowerCase().includes(query)
+      );
+      setFilteredInteractionTypes(filtered);
+    }
+  }, [interactionTypeSearchQuery]);
+
+  // Handle interaction type selection from dropdown
+  const handleSelectInteractionType = (type: string) => {
+    setValue('interaction_type', type);
+    setShowInteractionTypeDropdown(false);
+    setInteractionTypeSearchQuery('');
+  };
+
+  // Close dropdown when clicking outside or pressing ESC
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (interactionTypeDropdownRef.current && !interactionTypeDropdownRef.current.contains(event.target as Node)) {
+        setShowInteractionTypeDropdown(false);
+      }
+      // Note: ContactSelectField handles its own click outside logic
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowInteractionTypeDropdown(false);
+        // Note: ContactSelectField might need its own ESC handler if desired
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Handle form submit
   const onSubmit = handleSubmit(async (data: InteractionFormData) => {
@@ -227,6 +225,8 @@ export default function InteractionForm({
     }
   });
 
+  const contactIdValue = watch('contact_id');
+
   return (
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
@@ -258,31 +258,17 @@ export default function InteractionForm({
                 Contact*
               </div>
             </label>
-            <select
-              id="contact_id"
-              className={`w-full rounded-md border ${
-                errors.contact_id ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-              } shadow-sm focus:outline-none`}
-              {...register('contact_id', { required: 'Contact is required' })}
+            {/* Using the reusable ContactSelectField component */}
+            <ContactSelectField
+              value={contactIdValue ? contactIdValue : null}
+              onChange={(contactId) => setValue('contact_id', contactId || undefined)}
               disabled={!!preselectedContactId}
-            >
-              {preselectedContactId ? (
-                contacts.filter(contact => contact.id === preselectedContactId).map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.name} {contact.company?.name ? `(${contact.company.name})` : ''}
-                  </option>
-                ))
-              ) : (
-                <>
-                  <option value="">Select a contact</option>
-                  {contacts.map((contact) => (
-                    <option key={contact.id} value={contact.id}>
-                      {contact.name} {contact.company?.name ? `(${contact.company.name})` : ''}
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
+            />
+            {/* Hidden input for form validation */}
+            <input
+              type="hidden"
+              {...register('contact_id', { required: 'Contact is required' })}
+            />
             {errors.contact_id && (
               <p className="mt-1 text-xs text-red-600">
                 {errors.contact_id.message}
@@ -301,7 +287,7 @@ export default function InteractionForm({
               <input
                 type="date"
                 id="interaction_date"
-                className={`w-full rounded-md border ${
+                className={`w-full px-3 py-2 rounded-md border ${
                   errors.interaction_date ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
                 } shadow-sm focus:outline-none`}
                 {...register('interaction_date', { required: 'Interaction date is required' })}
@@ -315,19 +301,72 @@ export default function InteractionForm({
               <label htmlFor="interaction_type" className="block text-sm font-medium text-gray-700 mb-1">
                 Interaction Type*
               </label>
-              <select
-                id="interaction_type"
-                className={`w-full rounded-md border ${
-                  errors.interaction_type ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-                } shadow-sm focus:outline-none`}
-                {...register('interaction_type', { required: 'Interaction type is required' })}
-              >
-                {INTERACTION_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+              <div className="relative" ref={interactionTypeDropdownRef}>
+                {/* Selected interaction type display or search input */}
+                <div
+                  className={`w-full h-[42px] flex items-center rounded-md border ${
+                    errors.interaction_type ? 'border-red-300 focus-within:border-red-500 focus-within:ring-red-500' : 'border-gray-300 focus-within:border-indigo-500 focus-within:ring-indigo-500'
+                  } shadow-sm focus-within:ring-1 focus-within:outline-none px-3 py-2 cursor-pointer`}
+                  onClick={() => setShowInteractionTypeDropdown(true)}
+                >
+                  {watch('interaction_type') ? (
+                    <div className="flex items-center justify-between w-full">
+                      <span>{watch('interaction_type')}</span>
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-gray-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInteractionTypeSearchQuery('');
+                          setShowInteractionTypeDropdown(true);
+                        }}
+                      >
+                        <Search className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center w-full">
+                      <Search className="h-4 w-4 text-gray-400 mr-2" />
+                      <input
+                        type="text"
+                        placeholder="Search interaction types..."
+                        className="w-full border-0 focus:ring-0 p-0"
+                        value={interactionTypeSearchQuery}
+                        onChange={(e) => {
+                          setInteractionTypeSearchQuery(e.target.value);
+                          setShowInteractionTypeDropdown(true);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Hidden input for form validation */}
+                <input
+                  type="hidden"
+                  {...register('interaction_type', { required: 'Interaction type is required' })}
+                />
+                
+                {/* Interaction type dropdown */}
+                {showInteractionTypeDropdown && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-56 overflow-auto">
+                    {filteredInteractionTypes.length > 0 ? (
+                      filteredInteractionTypes.map((type) => (
+                        <div
+                          key={type}
+                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => handleSelectInteractionType(type)}
+                        >
+                          {type}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-2 text-gray-500">No interaction types found</div>
+                    )}
+                  </div>
+                )}
+              </div>
               {errors.interaction_type && (
                 <p className="mt-1 text-xs text-red-600">{errors.interaction_type.message}</p>
               )}
@@ -344,7 +383,7 @@ export default function InteractionForm({
             <input
               type="date"
               id="follow_up_date"
-              className="w-full rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
+              className="w-full px-3 py-2 rounded-md border border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm focus:outline-none"
               {...register('follow_up_date')}
             />
             <p className="mt-1 text-xs text-gray-500">Leave blank if no follow-up is planned</p>

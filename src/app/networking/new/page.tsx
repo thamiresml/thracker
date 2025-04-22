@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import InteractionForm from '../InteractionForm';
+import InteractionFormWrapper from './InteractionFormWrapper';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,8 +42,8 @@ export default async function AddInteractionPage(props: {
       <PageHeader title="Add New Interaction" />
 
       <div className="mt-4">
-        <InteractionForm
-          onClose={() => redirect('/networking')}
+        <InteractionFormWrapper
+          returnUrl="/networking"
           preselectedContactId={preselectedContactId}
         />
       </div>

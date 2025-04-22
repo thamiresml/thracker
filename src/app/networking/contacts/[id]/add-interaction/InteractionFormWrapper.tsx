@@ -1,4 +1,3 @@
-// src/app/networking/contacts/[id]/add-interaction/InteractionFormWrapper.tsx
 'use client';
 
 import { useCallback } from 'react';
@@ -27,4 +26,4 @@ export default function InteractionFormWrapper({
       preselectedContactId={preselectedContactId}
     />
   );
-}
+} 

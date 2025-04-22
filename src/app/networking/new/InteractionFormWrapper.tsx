@@ -1,4 +1,3 @@
-// src/app/networking/contacts/[id]/add-interaction/InteractionFormWrapper.tsx
 'use client';
 
 import { useCallback } from 'react';
@@ -7,12 +6,12 @@ import InteractionForm from '@/app/networking/InteractionForm';
 
 interface InteractionFormWrapperProps {
   returnUrl: string;
-  preselectedContactId: number;
+  preselectedContactId?: number;
 }
 
 export default function InteractionFormWrapper({
   returnUrl,
-  preselectedContactId,
+  preselectedContactId
 }: InteractionFormWrapperProps) {
   const router = useRouter();
   
@@ -22,9 +21,9 @@ export default function InteractionFormWrapper({
   }, [router, returnUrl]);
 
   return (
-    <InteractionForm
+    <InteractionForm 
       onClose={handleClose}
       preselectedContactId={preselectedContactId}
     />
   );
-}
+} 

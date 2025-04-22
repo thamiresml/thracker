@@ -24,10 +24,18 @@ export default function InteractionFormWrapper({
     router.push(returnUrl);
   }, [router, returnUrl]);
 
+  const formInitialData = {
+    contact_id: initialData.contact_id,
+    interaction_date: initialData.interaction_date,
+    interaction_type: initialData.interaction_type,
+    notes: initialData.notes || '',
+    follow_up_date: initialData.follow_up_date || null
+  };
+
   return (
     <InteractionForm
       interactionId={interactionId}
-      initialData={initialData}
+      initialData={formInitialData}
       onClose={handleClose}
       preselectedContactId={initialData.contact_id}
     />

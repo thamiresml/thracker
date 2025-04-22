@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-import InteractionFormWrapper from './InteracionFormWrapper';
+import InteractionFormWrapper from './InteractionFormWrapper';
 
 export const dynamic = 'force-dynamic';
 

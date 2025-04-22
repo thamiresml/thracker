@@ -100,6 +100,30 @@ export default function ContactSelectField({
     fetchContacts();
   }, [fetchContacts]);
   
+  // Close dropdown when clicking outside or pressing ESC
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const path = event.composedPath();
+      // Check if the click originated outside the component's container by checking the id
+      if (!path.some(el => el instanceof Element && el.id === 'contact-select-field-container')) {
+         setShowDropdown(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+  
   // Update search results when search query changes
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -171,7 +195,7 @@ export default function ContactSelectField({
   }
   
   return (
-    <div className="relative">
+    <div className="relative" id="contact-select-field-container">
       <div className="relative">
         <input
           type="text"
