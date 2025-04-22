@@ -4,30 +4,24 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, Filter, X, SortAsc, SortDesc } from 'lucide-react';
+import { Search, Filter, X } from 'lucide-react';
 
 interface ApplicationsFilterProps {
   statuses: string[];
   currentStatus: string;
   currentQuery: string;
-  currentSortBy: string;
-  currentSortOrder: string;
 }
 
 export default function ApplicationsFilter({
   statuses,
   currentStatus,
   currentQuery,
-  currentSortBy,
-  currentSortOrder,
 }: ApplicationsFilterProps) {
   const router = useRouter();
   const pathname = usePathname();
 
   const [searchQuery, setSearchQuery] = useState(currentQuery);
   const [status, setStatus] = useState(currentStatus || 'All');
-  const [sortBy, setSortBy] = useState(currentSortBy || 'applied_date');
-  const [sortOrder, setSortOrder] = useState(currentSortOrder || 'desc');
   const [debouncedQuery, setDebouncedQuery] = useState(currentQuery);
 
   // ✅ Track hydration so we don't trigger a loop
@@ -45,10 +39,8 @@ export default function ApplicationsFilter({
   useEffect(() => {
     setSearchQuery(currentQuery);
     setStatus(currentStatus || 'All');
-    setSortBy(currentSortBy || 'applied_date');
-    setSortOrder(currentSortOrder || 'desc');
     hasHydrated.current = true;
-  }, [currentQuery, currentStatus, currentSortBy, currentSortOrder]);
+  }, [currentQuery, currentStatus]);
 
   // Update URL only after hydration and *real* user-triggered changes
   useEffect(() => {
@@ -58,37 +50,40 @@ export default function ApplicationsFilter({
 
     if (debouncedQuery) urlParams.set('query', debouncedQuery);
     if (status && status !== 'All') urlParams.set('status', status);
-    if (sortBy && sortBy !== 'applied_date') urlParams.set('sortBy', sortBy);
-    if (sortOrder && sortOrder !== 'desc') urlParams.set('sortOrder', sortOrder);
 
-    const queryString = urlParams.toString();
-    router.replace(`${pathname}${queryString ? `?${queryString}` : ''}`, { scroll: false });
-  }, [debouncedQuery, status, sortBy, sortOrder, pathname, router]);
+    const existingParams = new URLSearchParams(window.location.search);
+    const currentSortBy = existingParams.get('sortBy');
+    const currentSortOrder = existingParams.get('sortOrder');
+    if (currentSortBy) urlParams.set('sortBy', currentSortBy);
+    if (currentSortOrder) urlParams.set('sortOrder', currentSortOrder);
+
+    const finalQueryString = urlParams.toString();
+    router.replace(`${pathname}${finalQueryString ? `?${finalQueryString}` : ''}`, { scroll: false });
+  }, [debouncedQuery, status, pathname, router]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setDebouncedQuery(searchQuery);
   };
 
-  const toggleSortOrder = () => {
-    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-  };
-
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSortBy(e.target.value);
-  };
-
   const resetFilters = () => {
     setSearchQuery('');
     setStatus('All');
-    setSortBy('applied_date');
-    setSortOrder('desc');
     setDebouncedQuery('');
-    router.push(pathname);
+    
+    const existingParams = new URLSearchParams(window.location.search);
+    const currentSortBy = existingParams.get('sortBy');
+    const currentSortOrder = existingParams.get('sortOrder');
+    const preservedParams = new URLSearchParams();
+    if (currentSortBy) preservedParams.set('sortBy', currentSortBy);
+    if (currentSortOrder) preservedParams.set('sortOrder', currentSortOrder);
+    const preservedQueryString = preservedParams.toString();
+
+    router.push(`${pathname}${preservedQueryString ? `?${preservedQueryString}` : ''}`);
   };
 
   const hasActiveFilters =
-    !!searchQuery || status !== 'All' || sortBy !== 'applied_date' || sortOrder !== 'desc';
+    !!searchQuery || status !== 'All';
 
   return (
     <div className="bg-white shadow-sm rounded-lg p-4">
@@ -136,28 +131,6 @@ export default function ApplicationsFilter({
             ))}
           </select>
         </div>
-
-        {/* Sort + Order */}
-        <div className="relative min-w-[180px]">
-          <select
-            value={sortBy}
-            onChange={handleSortChange}
-            className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 appearance-none"
-          >
-            <option value="applied_date">Applied Date</option>
-            <option value="position">Position</option>
-            <option value="status">Status</option>
-          </select>
-        </div>
-
-        <button
-          type="button"
-          onClick={toggleSortOrder}
-          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50"
-        >
-          {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-          <span className="ml-1">{sortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>
-        </button>
 
         {hasActiveFilters && (
           <button

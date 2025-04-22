@@ -68,59 +68,88 @@ export default async function ApplicationsPage({
   const validSortColumns = ['applied_date', 'position', 'status', 'companies.name'];
   const finalSortBy = validSortColumns.includes(sortBy) ? sortBy : 'applied_date';
 
+  // --- JavaScript Sorting Function --- 
+  const sortApplications = (apps: Application[], sortKey: string, sortDir: string) => {
+    return apps.sort((a, b) => {
+      const orderMultiplier = sortDir === 'asc' ? 1 : -1;
+      // Use unknown and type checking/casting for comparisons
+      let valA: unknown, valB: unknown; 
+
+      switch (sortKey) {
+        case 'companies.name':
+        case 'position':
+        case 'status':
+          // Assign values based on the key
+          if (sortKey === 'companies.name') {
+            valA = a.companies?.name;
+            valB = b.companies?.name;
+          } else if (sortKey === 'position') {
+            valA = a.position;
+            valB = b.position;
+          } else { // status
+            valA = a.status;
+            valB = b.status;
+          }
+          
+          // Handle nulls/undefined
+          if (valA == null && valB == null) return 0;
+          if (valA == null) return 1; 
+          if (valB == null) return -1; 
+          
+          // Ensure they are strings before comparing
+          if (typeof valA !== 'string' || typeof valB !== 'string') {
+            // Should ideally not happen if data types are correct, but good to handle
+            return 0; 
+          }
+          // Ensure case-insensitive comparison
+          return valA.toLowerCase().localeCompare(valB.toLowerCase()) * orderMultiplier;
+        case 'applied_date':
+          valA = a.applied_date ? new Date(a.applied_date).getTime() : null;
+          valB = b.applied_date ? new Date(b.applied_date).getTime() : null;
+          
+          // Handle nulls
+          if (valA === null && valB === null) return 0;
+          if (valA === null) return 1;
+          if (valB === null) return -1;
+          
+          // Ensure they are numbers before comparing
+          if (typeof valA !== 'number' || typeof valB !== 'number') {
+             return 0;
+          }
+          return (valA - valB) * orderMultiplier;
+        default:
+          return 0;
+      }
+    });
+  };
+
   // Initialize applications with an empty array (not null)
   let applications: Application[] = [];
   let error: PostgrestError | null = null;
   
   if (query && query.length > 0) {
-    // For search queries, we need to handle the text search differently
-    // First, get applications matching position
+    // --- Search Query Logic --- 
+    // Fetch position matches (no sorting)
     const positionQuery = supabase
       .from('applications')
-      .select(`
-        *,
-        companies (id, name, logo)
-      `)
+      .select('*, companies (id, name, logo)')
       .eq('user_id', user?.id)
       .ilike('position', `%${query}%`);
-    
-    if (status && status !== 'All') {
-      positionQuery.eq('status', status);
-    }
-    
-    positionQuery.order(finalSortBy, {
-      ascending: sortOrder === 'asc',
-    });
-    
+    if (status && status !== 'All') { positionQuery.eq('status', status); }
     const { data: positionResults, error: positionError } = await positionQuery;
     
-    // Then, get applications with matching company names
+    // Fetch company matches (no sorting)
     const companyQuery = supabase
       .from('applications')
-      .select(`
-        *,
-        companies!inner (id, name, logo)
-      `)
-      .eq('user_id', user?.id);
-      
-    // Since we're using inner join, we can filter on companies.name
-    companyQuery.ilike('companies.name', `%${query}%`);
-    
-    if (status && status !== 'All') {
-      companyQuery.eq('status', status);
-    }
-    
-    companyQuery.order(finalSortBy, {
-      ascending: sortOrder === 'asc',
-    });
-    
+      .select('*, companies!inner (id, name, logo)')
+      .eq('user_id', user?.id)
+      .ilike('companies.name', `%${query}%`);
+    if (status && status !== 'All') { companyQuery.eq('status', status); }
     const { data: companyResults, error: companyError } = await companyQuery;
-    
-    // Combine results and remove duplicates
+
+    // Combine results
     const combinedResults: Application[] = [];
     const seenIds = new Set<number>();
-    
-    // Add position search results
     if (positionResults) {
       for (const app of positionResults) {
         if (app && 'id' in app) {
@@ -129,8 +158,6 @@ export default async function ApplicationsPage({
         }
       }
     }
-    
-    // Add company search results (if not already included)
     if (companyResults) {
       for (const app of companyResults) {
         if (app && 'id' in app && !seenIds.has(app.id)) {
@@ -139,33 +166,29 @@ export default async function ApplicationsPage({
       }
     }
     
-    applications = combinedResults;
-    
-    // Set error if either query had an error
+    // Sort combined results using JS function
+    applications = sortApplications(combinedResults, finalSortBy, sortOrder);
     error = positionError || companyError;
+
   } else {
-    // If no search query, use the normal query approach
+    // --- No Search Query Logic --- 
     let applicationsQuery = supabase
       .from('applications')
-      .select(
-        `
-        *,
-        companies (id, name, logo)
-      `
-      )
+      .select('*, companies (id, name, logo)')
       .eq('user_id', user?.id);
 
     if (status && status !== 'All') {
       applicationsQuery = applicationsQuery.eq('status', status);
     }
 
-    applicationsQuery = applicationsQuery.order(finalSortBy, {
-      ascending: sortOrder === 'asc',
-    });
-
+    // Fetch data WITHOUT Supabase sorting
     const result = await applicationsQuery;
-    applications = (result.data || []) as Application[];
+    // Use const as it's not reassigned
+    const fetchedApplications = (result.data || []) as Application[]; 
     error = result.error;
+
+    // Sort fetched results using JS function
+    applications = sortApplications(fetchedApplications, finalSortBy, sortOrder);
   }
 
   // ✅ Get all applications for funnel stats (unfiltered)
@@ -228,8 +251,6 @@ export default async function ApplicationsPage({
             statuses={availableStatuses}
             currentStatus={status}
             currentQuery={query}
-            currentSortBy={sortBy}
-            currentSortOrder={sortOrder}
           />
 
           {/* Table */}

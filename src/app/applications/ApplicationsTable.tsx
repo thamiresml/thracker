@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import { useRouter } from 'next/navigation';
 import { Application } from '@/types/common';
@@ -35,11 +35,16 @@ export default function ApplicationsTable({
   
   // Helper to render sort indicator
   const renderSortIndicator = (column: string) => {
-    if (sortBy !== column) return null;
-    
-    return sortOrder === 'asc' 
-      ? <ChevronUp className="w-4 h-4 ml-1" /> 
-      : <ChevronDown className="w-4 h-4 ml-1" />;
+    if (sortBy === column) {
+      // Active sort column: Show specific direction with active color
+      // ChevronDown for ASC (A-Z, older date), ChevronUp for DESC (Z-A, newer date)
+      return sortOrder === 'asc' 
+        ? <ChevronDown className="w-4 h-4 ml-1 inline-block text-indigo-600" /> // Down for ASC
+        : <ChevronUp className="w-4 h-4 ml-1 inline-block text-indigo-600" />;   // Up for DESC
+    } else {
+      // Inactive sortable column: Show default indicator with muted color
+      return <ChevronsUpDown className="w-4 h-4 ml-1 inline-block text-gray-400" />;
+    }
   };
   
   // Check if we have applications to display
