@@ -42,6 +42,14 @@ interface ApplicationFormProps {
   preselectedCompanyId?: number;
 }
 
+// Helper function to format date as YYYY-MM-DD in local timezone
+const getLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Months are 0-indexed
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function ApplicationForm({ onClose, applicationId, preselectedCompanyId }: ApplicationFormProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -64,7 +72,8 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
     formState: { errors }
   } = useForm<ApplicationFormData>({
     defaultValues: {
-      appliedDate: new Date().toISOString().split('T')[0],
+      // Use the helper function for the local date
+      appliedDate: getLocalDateString(new Date()),
     }
   });
 
@@ -78,7 +87,8 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
       setValue('appliedDate', undefined);
     } else if (!watch('appliedDate')) {
       // When changing from "Saved" to another status and no date is set, set today's date
-      setValue('appliedDate', new Date().toISOString().split('T')[0]);
+      // Use the helper function here too
+      setValue('appliedDate', getLocalDateString(new Date()));
     }
   }, [selectedStatus, setValue, watch]);
 
