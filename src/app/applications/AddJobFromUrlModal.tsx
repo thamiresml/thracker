@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, LightbulbIcon } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import ApplicationForm from './ApplicationForm';
 
@@ -144,52 +144,65 @@ export default function AddJobFromUrlModal({ onClose }: AddJobFromUrlModalProps)
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="mb-5">
+        <form onSubmit={handleSubmit} className="p-4">
+          <div className="mb-4">
             <label htmlFor="jobUrl" className="block text-sm font-medium text-gray-700 mb-1">
               Job Posting URL
             </label>
             <input
               type="url"
               id="jobUrl"
-              placeholder="https://company.com/careers/job-title"
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm py-2 px-3 border"
               value={jobUrl}
               onChange={(e) => setJobUrl(e.target.value)}
-              required
+              placeholder="Paste the direct link to the job posting."
+              className="w-full rounded-md border border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 px-3 py-2"
             />
-            <p className="mt-2 text-sm text-gray-500">
-              Paste the direct link to the job posting.
-            </p>
-            
-            <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-md flex items-start">
-              <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mr-2 mt-0.5" />
-              <p className="text-xs text-amber-800">
-                Tip: Use the direct company careers page URL. Job boards like LinkedIn may not work reliably.
+            <div className="mt-2.5 flex items-start gap-1.5">
+              <LightbulbIcon className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-gray-600">
+                Use the direct company careers page URL. Job boards like LinkedIn may not work reliably.
               </p>
             </div>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-100">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end gap-3">
             <button
               type="button"
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
               onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
               disabled={isLoading}
+              className={`px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
+                isLoading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              {isLoading ? 'Processing...' : 'Add Job'}
+              {isLoading ? (
+                <>
+                  <span className="inline-block animate-spin mr-2">⚡️</span>
+                  Processing...
+                </>
+              ) : (
+                'Add Job'
+              )}
             </button>
           </div>
         </form>
