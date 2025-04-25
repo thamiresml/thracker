@@ -54,7 +54,8 @@ export default async function Dashboard() {
       id,
       user_id
     `)
-    .eq('user_id', user.id);
+    .eq('user_id', user.id)
+    .neq('status', 'Saved');  // Exclude saved applications from the count
     
   // Fetch recent applications for display
   const { data: applications } = await supabase
@@ -348,7 +349,7 @@ export default async function Dashboard() {
                         {app.status}
                       </span>
                       <p className="text-xs text-gray-500 mt-1">
-                        {app.created_at ? formatDate(app.created_at) : 'N/A'}
+                        {app.applied_date ? formatDate(app.applied_date) : 'N/A'}
                       </p>
                     </div>
                   </div>

@@ -64,7 +64,8 @@ export default function ApplicationsFunnel({ applications = [] }: ApplicationsFu
     });
 
     setStageStats(stats);
-    setTotalCount(applications.length);
+    const submittedCount = applications.filter(app => app?.status !== 'Saved').length;
+    setTotalCount(submittedCount);
   }, [applications]);
 
   const handleClick = (stageId: string) => {

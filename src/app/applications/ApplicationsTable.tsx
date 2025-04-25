@@ -204,7 +204,7 @@ function getStatusClass(status: string) {
 }
 
 function formatDate(dateString: string) {
-  if (!dateString) return 'Unknown';
+  if (!dateString) return '-';
   
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
