@@ -3,13 +3,11 @@
 import { Briefcase, Plus, Link } from 'lucide-react';
 import EmptyState from '@/components/ui/EmptyState';
 import { useRouter } from 'next/navigation';
+import { useModal } from '@/components/layout/DashboardLayout';
 
-interface EmptyStateWithActionProps {
-  openAddJobUrlModal: () => void;
-}
-
-export default function EmptyStateWithAction({ openAddJobUrlModal }: EmptyStateWithActionProps) {
+export default function EmptyStateWithAction() {
   const router = useRouter();
+  const { openAddJobUrlModal } = useModal();
   
   return (
     <>

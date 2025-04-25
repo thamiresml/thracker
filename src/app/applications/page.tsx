@@ -4,8 +4,7 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import PageHeader from '@/components/ui/PageHeader';
-//import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import AddApplicationButton from '@/app/applications/AddApplicationsButton';
+import HeaderActions from './HeaderActions';
 import ApplicationsTable from '@/app/applications/ApplicationsTable';
 import { createClient } from '@/utils/supabase/server';
 import EmptyStateWithAction from './EmptyStateWithAction';
@@ -227,24 +226,11 @@ export default async function ApplicationsPage({
     console.error('Error fetching applications:', error);
   }
 
-  // Need to pass the modal opener function down. 
-  // This requires DashboardLayout to accept it as a prop OR use Context/Zustand.
-  // For now, assuming DashboardLayout can pass it down (requires DashboardLayout modification)
-  // OR assuming a state management solution provides access to the function.
-  // Placeholder: Define a dummy function if one isn't available via props/context
-  const openAddJobUrlModal = () => {
-    console.warn("openAddJobUrlModal function not provided to ApplicationsPage");
-  };
-
   return (
     <DashboardLayout>
       <PageHeader 
         title="Applications" 
-        action={
-          <div className="flex space-x-4">
-            <AddApplicationButton />
-          </div>
-        } 
+        action={<HeaderActions />}
       />
 
       {/* For tracking router changes */}
@@ -253,7 +239,7 @@ export default async function ApplicationsPage({
       </Suspense>
 
       {applications.length === 0 && !query && !status ? (
-        <EmptyStateWithAction openAddJobUrlModal={openAddJobUrlModal} />
+        <EmptyStateWithAction />
       ) : (
         <div className="space-y-6">
           {/* Application Funnel */}
