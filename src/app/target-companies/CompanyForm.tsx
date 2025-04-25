@@ -38,9 +38,10 @@ interface CompanyFormProps {
   onClose: () => void;
   companyId?: number;
   initialData?: Partial<TargetCompanyFormData>;
+  initialCompanyName?: string;
 }
 
-export default function CompanyForm({ onClose, companyId, initialData }: CompanyFormProps) {
+export default function CompanyForm({ onClose, companyId, initialData, initialCompanyName }: CompanyFormProps) {
   const router = useRouter();
   const supabase = createClient();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -65,6 +66,7 @@ export default function CompanyForm({ onClose, companyId, initialData }: Company
       is_target: initialData.is_target === undefined ? true : Boolean(initialData.is_target),
       priority: initialData.priority || 'Medium'
     } : {
+      name: initialCompanyName || '',
       priority: 'Medium',
       is_target: true
     }

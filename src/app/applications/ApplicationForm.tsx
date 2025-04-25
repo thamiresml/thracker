@@ -23,7 +23,7 @@ interface ApplicationFormData {
   location?: string;
   salary?: string;
   jobPostingUrl?: string;
-  notes?: string;
+  jobDescription?: string;
 }
 
 // Updated status options
@@ -47,6 +47,7 @@ interface ApplicationFormProps {
   onClose: () => void;
   applicationId?: number;
   preselectedCompanyId?: number;
+  initialData?: Partial<ApplicationFormData & { notes?: string; companyName?: string }>;
 }
 
 // Helper function to format date as YYYY-MM-DD in local timezone
@@ -57,7 +58,7 @@ const getLocalDateString = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-export default function ApplicationForm({ onClose, applicationId, preselectedCompanyId }: ApplicationFormProps) {
+export default function ApplicationForm({ onClose, applicationId, preselectedCompanyId, initialData }: ApplicationFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -76,12 +77,19 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors }
   } = useForm<ApplicationFormData>({
     defaultValues: {
       // Use the helper function for the local date
       appliedDate: getLocalDateString(new Date()),
       status: '', // Initialize status
+      // Spread initialData, mapping notes to jobDescription if present
+      ...(applicationId ? {} : {
+        ...initialData,
+        jobDescription: initialData?.jobDescription ?? initialData?.notes, // Map notes if jobDescription isn't there
+        notes: undefined, // Ensure notes isn't directly set
+      }),
     }
   });
 
@@ -117,6 +125,11 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
   // Fetch data on mount or when applicationId changes
   useEffect(() => {
     const fetchData = async () => {
+      let defaultFormValues: Partial<ApplicationFormData> = {
+        appliedDate: getLocalDateString(new Date()),
+        status: 'Saved', // Default status is Saved
+      };
+      
       try {
         // 1) Load companies
         const { data: companiesData, error: companiesError } = await supabase
@@ -128,12 +141,37 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
         setCompanies(companiesData || []);
         setFilteredCompanies(companiesData || []);
 
-        // If preselectedCompanyId is provided, set the form value
-        if (preselectedCompanyId) {
-          setValue('companyId', preselectedCompanyId);
+        // Apply initialData if creating a new application
+        if (!applicationId && initialData) {
+          defaultFormValues = {
+            ...defaultFormValues,
+            position: initialData.position,
+            status: initialData.status || 'Saved',
+            location: initialData.location,
+            salary: initialData.salary,
+            jobPostingUrl: initialData.jobPostingUrl,
+            jobDescription: initialData.jobDescription ?? initialData.notes, // Map notes
+            // Don't set companyId here, use preselectedCompanyId or suggested name
+          };
+          
+          // If no company ID is preselected, but a name was suggested, prefill search
+          if (!preselectedCompanyId && initialData.companyName) {
+            setCompanySearchQuery(initialData.companyName);
+            
+            // After a short delay, show the company dropdown with options to create new
+            setTimeout(() => {
+              setShowCompanyDropdown(true);
+            }, 500);
+          }
         }
 
-        // 2) If editing, load existing application
+        // If preselectedCompanyId is provided, set it (overrides search suggestion)
+        if (preselectedCompanyId) {
+          defaultFormValues.companyId = preselectedCompanyId;
+          setCompanySearchQuery(''); // Clear search if ID is set
+        }
+
+        // 2) If editing, load existing application (overrides initialData & defaults)
         if (applicationId) {
           const { data: application, error: applicationError } = await supabase
             .from('applications')
@@ -144,24 +182,32 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
           if (applicationError) throw applicationError;
 
           if (application) {
-            setValue('companyId', application.company_id);
-            setValue('position', application.position);
-            setValue('status', application.status);
-            setValue('appliedDate', application.applied_date);
-            setValue('location', application.location);
-            setValue('salary', application.salary);
-            setValue('jobPostingUrl', application.job_posting_url);
-            setValue('notes', application.notes);
+            // Overwrite defaults with fetched data
+            defaultFormValues = {
+              companyId: application.company_id,
+              position: application.position,
+              status: application.status,
+              appliedDate: application.applied_date || undefined, // Handle null date from DB
+              location: application.location,
+              salary: application.salary,
+              jobPostingUrl: application.job_posting_url,
+              jobDescription: application.job_description
+            };
+            setCompanySearchQuery(''); // Clear search when editing
           }
         }
       } catch (err: unknown) {
         const error = err as Error;
         setError(error.message);
+      } finally {
+         // Reset the form with the determined default values
+         reset(defaultFormValues);
       }
     };
 
     fetchData();
-  }, [applicationId, setValue, supabase, preselectedCompanyId]);
+    // Ensure dependency array includes relevant state/props like reset
+  }, [applicationId, preselectedCompanyId, initialData, setValue, supabase, reset]);
 
   // Filter companies based on search query
   useEffect(() => {
@@ -205,6 +251,21 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
           
           if (companiesData) {
             setCompanies(companiesData);
+            
+            // After fetching companies, we need to also refilter them based on the current search query
+            if (companySearchQuery) {
+              setFilteredCompanies(
+                companiesData.filter(company => 
+                  company.name.toLowerCase().includes(companySearchQuery.toLowerCase())
+                )
+              );
+              
+              // Re-open the dropdown to show the user the filtered results or create option
+              setShowCompanyDropdown(true);
+            } else {
+              setFilteredCompanies(companiesData);
+            }
+            
             // If there are new companies, select the newest one (last in the array)
             const newCompanies = companiesData.filter(
               comp => !companies.some(oldComp => oldComp.id === comp.id)
@@ -222,7 +283,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
 
       fetchCompanies();
     }
-  }, [showCompanyModal, supabase, setValue, companies]);
+  }, [showCompanyModal, supabase, setValue, companies, companySearchQuery]);
 
   // Handle form submit
   const onSubmit = async (data: ApplicationFormData) => {
@@ -251,7 +312,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
             location: data.location,
             salary: data.salary,
             job_posting_url: data.jobPostingUrl,
-            notes: data.notes
+            job_description: data.jobDescription
           })
           .eq('id', applicationId);
 
@@ -268,7 +329,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
             location: data.location,
             salary: data.salary,
             job_posting_url: data.jobPostingUrl,
-            notes: data.notes,
+            job_description: data.jobDescription,
             user_id: user.id
           });
 
@@ -389,16 +450,24 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
                     </>
                   ) : (
                     <>
-                      <div className="px-4 py-2 text-gray-500">No companies found</div>
-                      <div 
-                        className="px-4 py-2 border-t border-gray-200 text-purple-600 hover:bg-purple-50 cursor-pointer flex items-center" 
-                        onClick={() => {
-                          setShowCompanyModal(true);
-                          setShowCompanyDropdown(false);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add &ldquo;{companySearchQuery}&rdquo; as a new company
+                      <div className="px-4 py-3 text-center">
+                        <Briefcase className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                        <p className="text-sm font-medium text-gray-900 mb-1">No companies found</p>
+                        <p className="text-xs text-gray-500 mb-3">
+                          {companySearchQuery 
+                            ? `No companies match "${companySearchQuery}"`
+                            : "Try a different search term"}
+                        </p>
+                        <button 
+                          onClick={() => {
+                            setShowCompanyModal(true);
+                            setShowCompanyDropdown(false);
+                          }}
+                          className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          {companySearchQuery ? `Add "${companySearchQuery}"` : 'Add new company'}
+                        </button>
                       </div>
                     </>
                   )}
@@ -535,15 +604,15 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
           </div>
 
           <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
+            <label htmlFor="jobDescription" className="block text-sm font-medium text-gray-700 mb-1">
+              Job Description
             </label>
             <textarea
-              id="notes"
-              rows={3}
+              id="jobDescription"
+              rows={5}
               className="w-full rounded-md border border-gray-300 focus:border-purple-500 focus:ring-purple-500 shadow-sm focus:outline-none px-3 py-2"
-              placeholder="Any additional notes about this application..."
-              {...register('notes')}
+              placeholder="Paste the job description here..."
+              {...register('jobDescription')}
             />
           </div>
 
@@ -571,6 +640,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
         <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[60]">
           <CompanyForm 
             onClose={() => setShowCompanyModal(false)}
+            initialCompanyName={companySearchQuery}
           />
         </div>
       )}

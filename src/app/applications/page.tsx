@@ -227,9 +227,25 @@ export default async function ApplicationsPage({
     console.error('Error fetching applications:', error);
   }
 
+  // Need to pass the modal opener function down. 
+  // This requires DashboardLayout to accept it as a prop OR use Context/Zustand.
+  // For now, assuming DashboardLayout can pass it down (requires DashboardLayout modification)
+  // OR assuming a state management solution provides access to the function.
+  // Placeholder: Define a dummy function if one isn't available via props/context
+  const openAddJobUrlModal = () => {
+    console.warn("openAddJobUrlModal function not provided to ApplicationsPage");
+  };
+
   return (
     <DashboardLayout>
-      <PageHeader title="Applications" action={<AddApplicationButton />} />
+      <PageHeader 
+        title="Applications" 
+        action={
+          <div className="flex space-x-4">
+            <AddApplicationButton />
+          </div>
+        } 
+      />
 
       {/* For tracking router changes */}
       <Suspense fallback={null}>
@@ -237,7 +253,7 @@ export default async function ApplicationsPage({
       </Suspense>
 
       {applications.length === 0 && !query && !status ? (
-        <EmptyStateWithAction />
+        <EmptyStateWithAction openAddJobUrlModal={openAddJobUrlModal} />
       ) : (
         <div className="space-y-6">
           {/* Application Funnel */}
