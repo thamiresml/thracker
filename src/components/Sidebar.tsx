@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Briefcase, Star, Users, LogOut, CheckSquare, UserCircle, Link as LinkIcon } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Star, Users, LogOut, CheckSquare, UserCircle, Link as LinkIcon, Bot } from 'lucide-react';
 
 // Define props including the modal opener function
 interface SidebarProps {
@@ -105,6 +105,19 @@ export default function Sidebar({ openAddJobUrlModal }: SidebarProps) {
         >
           <Users className={`h-5 w-5 mr-3 ${isActive('/networking') ? 'text-purple-500' : 'text-gray-400'}`} />
           <span>Networking</span>
+        </Link>
+        
+        {/* Application Copilot link */}
+        <Link 
+          href="/copilot"
+          className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md ${
+            isActive('/copilot') 
+              ? 'bg-purple-50 text-purple-700' 
+              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+          }`}
+        >
+          <Bot className={`h-5 w-5 mr-3 ${isActive('/copilot') ? 'text-purple-500' : 'text-gray-400'}`} />
+          <span>Application Copilot</span>
         </Link>
       </nav>
       

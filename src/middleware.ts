@@ -95,7 +95,8 @@ function isProtectedRoute(pathname: string): boolean {
     '/applications',
     '/networking',
     '/target-companies',
-    '/weekly-plan'
+    '/weekly-plan',
+    '/copilot'
   ]
   
   return protectedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`))
@@ -110,5 +111,6 @@ export const config = {
     '/networking/:path*',
     '/target-companies/:path*',
     '/weekly-plan/:path*',
+    '/copilot/:path*',
   ],
 }

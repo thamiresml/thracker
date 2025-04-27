@@ -30,6 +30,7 @@ export interface Company {
     created_at?: string;
     updated_at?: string;
     companies?: Company;
+    job_description?: string;
   }
   
   export interface Contact {

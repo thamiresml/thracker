@@ -97,23 +97,21 @@ export default function DocumentsSection({ userId }: DocumentsSectionProps) {
     setUploading(true);
     setMessage('');
     setMessageType(null);
-    
+
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${fileType}_${Date.now()}.${fileExt}`; // Use Date.now() for simplicity
-      const filePath = `${userId}/${fileName}`;
-      
-      const { error } = await supabase
-        .storage
-        .from('user_documents')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false // Don't upsert to avoid overwriting with same timestamp name in quick succession
-        });
-        
-      if (error) {
-        console.error('Error uploading file:', error);
-        setMessage(`Failed to upload file: ${error.message}`);
+      const formData = new FormData();
+      formData.append('pdf', file);
+      formData.append('userId', userId);
+      formData.append('type', fileType);
+
+      const response = await fetch('/api/upload-document', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.error || 'Failed to upload file');
         setMessageType('error');
       } else {
         setMessage('File uploaded successfully');
@@ -128,7 +126,7 @@ export default function DocumentsSection({ userId }: DocumentsSectionProps) {
       setUploading(false);
       // Reset the file input
       if (inputRef.current) {
-        inputRef.current.value = ''; 
+        inputRef.current.value = '';
       }
     }
   };
