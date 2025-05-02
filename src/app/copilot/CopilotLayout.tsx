@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Application } from '@/types/common';
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Copy, Save } from 'lucide-react';
 import ApplicationSelector from './components/ApplicationSelector';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -57,12 +57,19 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
   // UI State
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [userId, setUserId] = useState<string | null>(null);
   // Job Description Toggle
   const [showJobDescription, setShowJobDescription] = useState(false);
   // AI Summary Toggle
   const [showSummary, setShowSummary] = useState(false);
+  // --- ADD NEW STATE VARIABLE ---
+  const [hasFetchedDocuments, setHasFetchedDocuments] = useState(false);
+  // Track if user is missing both primary documents
+  const [isMissingDocuments, setIsMissingDocuments] = useState(false);
+  // --- ADDED: State for resume suggestions ---
+  const [suggestions, setSuggestions] = useState<Array<{id: string, original: string, suggestion: string, accepted: boolean}>>([]);
+  
   // Escape key closes job description
   useEffect(() => {
     if (!showJobDescription) return;
@@ -88,168 +95,117 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
     getUserId();
   }, []);
 
-  // Load initial base documents (resume, base cover letter) when userId is available
-  useEffect(() => {
-    if (!userId) return;
+  // --- REFACTORED: Define fetchInitialDocuments outside useEffect, wrapped in useCallback ---
+  const fetchInitialDocuments = useCallback(async () => {
+    if (!userId) return; // Guard against running if userId is null
+    
+    // Mark that we've started a fetch attempt to prevent infinite retries
+    setHasFetchedDocuments(true);
+    
+    setLoadingState(prev => ({ ...prev, initialDocs: true }));
+    setError(null);
+    setResumeContent(getDefaultResume());
+    setResumePdfUrl('');
+    setBaseCoverLetterContent('');
+    setCurrentCoverLetter('');
+    // Reset the missing documents flag
+    setIsMissingDocuments(false);
 
-    const fetchInitialDocuments = async () => {
-      setLoadingState(prev => ({ ...prev, initialDocs: true }));
-      setError(null);
-      setResumeContent(getDefaultResume());
-      setResumePdfUrl('');
-      setBaseCoverLetterContent('');
-      setCurrentCoverLetter('');
+    try {
+      // Track if we found any documents
+      let hasResume = false;
+      let hasCoverLetter = false;
 
-      try {
-        // --- Fetch latest BASE COVER LETTER text ---
-        const coverLetterPath = await getLatestCoverLetterPath(userId);
-        if (coverLetterPath) {
-          try {
-            const parseResponse = await fetch('/api/parse-storage-pdf', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pdfPath: coverLetterPath }),
-            });
-            if (!parseResponse.ok) {
-              const errorBody = await parseResponse.text();
-              throw new Error(`Failed to parse cover letter PDF (${parseResponse.status}): ${errorBody}`);
-            }
-            const data = await parseResponse.json();
-            setBaseCoverLetterContent(data.text || '');
-            setCurrentCoverLetter(data.text || '');
-          } catch (parseError: unknown) {
-            const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-            setError(`Could not load your base cover letter. ${errorMessage}`);
-            setBaseCoverLetterContent('');
-            setCurrentCoverLetter('');
-            return; // Stop further loading
+      // --- Fetch latest BASE COVER LETTER text ---
+      const coverLetterPath = await getLatestCoverLetterPath(userId);
+      if (coverLetterPath) {
+        hasCoverLetter = true;
+        try {
+          const parseResponse = await fetch('/api/parse-storage-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pdfPath: coverLetterPath }),
+          });
+          if (!parseResponse.ok) {
+            const errorBody = await parseResponse.text();
+            throw new Error(`Failed to parse cover letter PDF (${parseResponse.status}): ${errorBody}`);
           }
-        } else {
+          const data = await parseResponse.json();
+          setBaseCoverLetterContent(data.text || '');
+          setCurrentCoverLetter(data.text || '');
+        } catch (parseError: unknown) {
+          const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
+          setError(`Could not load your base cover letter. ${errorMessage}`);
           setBaseCoverLetterContent('');
           setCurrentCoverLetter('');
+          // Continue anyway - load resume if possible
         }
-
-        // --- Fetch latest RESUME text ---
-        const resumePath = await getLatestResumePath(userId);
-        if (resumePath) {
-          try {
-            const parseResponse = await fetch('/api/parse-storage-pdf', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pdfPath: resumePath }),
-            });
-            if (!parseResponse.ok) {
-              const errorBody = await parseResponse.text();
-              throw new Error(`Failed to parse resume PDF (${parseResponse.status}): ${errorBody}`);
-            }
-            const data = await parseResponse.json();
-            setResumeContent(data.text || getDefaultResume());
-            const { data: publicUrlData } = supabase.storage.from('user_documents').getPublicUrl(resumePath);
-            setResumePdfUrl(publicUrlData?.publicUrl || '');
-          } catch (parseError: unknown) {
-            const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-            setError(`Could not load your resume. ${errorMessage}`);
-            setResumeContent(getDefaultResume());
-            setResumePdfUrl('');
-            return; // Stop further loading
-          }
-        } else {
-          setResumeContent(getDefaultResume());
-          setResumePdfUrl('');
-        }
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(`Could not load your documents. ${errorMessage}`);
-        setResumeContent(getDefaultResume());
+      } else {
         setBaseCoverLetterContent('');
         setCurrentCoverLetter('');
-      } finally {
-        setLoadingState(prev => ({ ...prev, initialDocs: false }));
       }
-    };
 
-    fetchInitialDocuments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, supabase.storage]);
+      // --- Fetch latest RESUME text ---
+      // Only proceed if cover letter fetch didn't cause an error that returned early
+      const resumePath = await getLatestResumePath(userId);
+      if (resumePath) {
+        hasResume = true;
+        try {
+          const parseResponse = await fetch('/api/parse-storage-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pdfPath: resumePath }),
+          });
+          if (!parseResponse.ok) {
+            const errorBody = await parseResponse.text();
+            throw new Error(`Failed to parse resume PDF (${parseResponse.status}): ${errorBody}`);
+          }
+          const data = await parseResponse.json();
+          setResumeContent(data.text || getDefaultResume());
+          const { data: publicUrlData } = supabase.storage.from('user_documents').getPublicUrl(resumePath);
+          setResumePdfUrl(publicUrlData?.publicUrl || '');
+        } catch (parseError: unknown) {
+          const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
+          setError(`Could not load your resume. ${errorMessage}`);
+          setResumeContent(getDefaultResume());
+          setResumePdfUrl('');
+          // Continue anyway
+        }
+      } else {
+        setResumeContent(getDefaultResume());
+        setResumePdfUrl('');
+      }
+
+      // Check if both primary documents are missing
+      if (!hasResume && !hasCoverLetter) {
+        setIsMissingDocuments(true);
+      }
+    } catch (err: unknown) {
+      // This catches errors thrown by getLatest...Path or checkAuth
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Could not load your documents. ${errorMessage}`);
+      setResumeContent(getDefaultResume());
+      setBaseCoverLetterContent('');
+      setCurrentCoverLetter('');
+    } finally {
+      setLoadingState(prev => ({ ...prev, initialDocs: false }));
+    }
+  }, [userId]); 
+
+  // Load initial base documents when userId changes
+  useEffect(() => {
+    // --- CHANGE: Only fetch documents if we haven't already tried and userId exists ---
+    if (userId && !hasFetchedDocuments) {
+      fetchInitialDocuments();
+    }
+  }, [userId, fetchInitialDocuments, hasFetchedDocuments]);
 
   // Retry handler for error UI
   const handleRetry = () => {
+    // --- CHANGE: Reset the fetch flag so we can try again ---
+    setHasFetchedDocuments(false);
     setError(null);
-    setLoadingState(prev => ({ ...prev, initialDocs: true }));
-    if (userId) {
-      // Re-run the fetch logic
-      (async () => {
-        // This is the same as fetchInitialDocuments, but avoids reloading the whole page
-        try {
-          // --- Fetch latest BASE COVER LETTER text ---
-          const coverLetterPath = await getLatestCoverLetterPath(userId);
-          if (coverLetterPath) {
-            try {
-              const parseResponse = await fetch('/api/parse-storage-pdf', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pdfPath: coverLetterPath }),
-              });
-              if (!parseResponse.ok) {
-                const errorBody = await parseResponse.text();
-                throw new Error(`Failed to parse cover letter PDF (${parseResponse.status}): ${errorBody}`);
-              }
-              const data = await parseResponse.json();
-              setBaseCoverLetterContent(data.text || '');
-              setCurrentCoverLetter(data.text || '');
-            } catch (parseError: unknown) {
-              const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-              setError(`Could not load your base cover letter. ${errorMessage}`);
-              setBaseCoverLetterContent('');
-              setCurrentCoverLetter('');
-              setLoadingState(prev => ({ ...prev, initialDocs: false }));
-              return;
-            }
-          } else {
-            setBaseCoverLetterContent('');
-            setCurrentCoverLetter('');
-          }
-
-          // --- Fetch latest RESUME text ---
-          const resumePath = await getLatestResumePath(userId);
-          if (resumePath) {
-            try {
-              const parseResponse = await fetch('/api/parse-storage-pdf', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pdfPath: resumePath }),
-              });
-              if (!parseResponse.ok) {
-                const errorBody = await parseResponse.text();
-                throw new Error(`Failed to parse resume PDF (${parseResponse.status}): ${errorBody}`);
-              }
-              const data = await parseResponse.json();
-              setResumeContent(data.text || getDefaultResume());
-              const { data: publicUrlData } = supabase.storage.from('user_documents').getPublicUrl(resumePath);
-              setResumePdfUrl(publicUrlData?.publicUrl || '');
-            } catch (parseError: unknown) {
-              const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-              setError(`Could not load your resume. ${errorMessage}`);
-              setResumeContent(getDefaultResume());
-              setResumePdfUrl('');
-              setLoadingState(prev => ({ ...prev, initialDocs: false }));
-              return;
-            }
-          } else {
-            setResumeContent(getDefaultResume());
-            setResumePdfUrl('');
-          }
-        } catch (err: unknown) {
-          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          setError(`Could not load your documents. ${errorMessage}`);
-          setResumeContent(getDefaultResume());
-          setBaseCoverLetterContent('');
-          setCurrentCoverLetter('');
-        } finally {
-          setLoadingState(prev => ({ ...prev, initialDocs: false }));
-        }
-      })();
-    }
+    // Fetch will be triggered by the useEffect above when hasFetchedDocuments changes
   };
 
   // Run analysis when application selected, resume content available, and agent not already running
@@ -300,6 +256,18 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
 
         setCompatibilityScore(data.compatibilityScore ?? null);
         setAnalysisText(data.analysisText ?? 'No analysis provided.');
+        
+        // --- ADDED: Update the current cover letter with the customized one from the API ---
+        if (data.coverLetter) {
+          console.log('Setting customized cover letter from API response');
+          setCurrentCoverLetter(data.coverLetter);
+        }
+        
+        // --- ADDED: Store resume suggestions from API response ---
+        if (data.suggestions && Array.isArray(data.suggestions)) {
+          console.log('Setting resume suggestions from API response', data.suggestions);
+          setSuggestions(data.suggestions);
+        }
 
       } catch (err: unknown) {
         console.error('Error running copilot agent:', err);
@@ -428,6 +396,26 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
     );
   }
 
+  // Show a friendly message if user hasn't uploaded any documents yet
+  if (isMissingDocuments) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] max-w-md mx-auto text-center px-4">
+        <div className="text-2xl font-semibold text-[var(--foreground)] mb-4">Welcome to the AI Copilot!</div>
+        <div className="text-[var(--muted)] mb-6">
+          To get started with the Copilot, please upload your resume and a base cover letter in your profile. 
+          These documents will help our AI tailor job-specific recommendations for you.
+        </div>
+        <Button
+          variant="primary"
+          className="px-6 py-2"
+          onClick={() => window.location.href = '/profile'}
+        >
+          Go to Profile
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden bg-[var(--surface)] gap-6 p-6">
       <Toaster position="top-center" richColors />
@@ -456,6 +444,7 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
               applications={applications}
               selectedApplication={selectedApplication}
               onSelect={handleApplicationSelect}
+              className={!selectedApplication ? "border-[var(--primary)] border-2" : ""}
             />
           </div>
         </Card>
@@ -500,6 +489,22 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
                 {selectedApplication.job_description || 'No job description provided.'}
               </div>
             </div>
+            
+            {/* --- ADDED: Job posting link --- */}
+            {selectedApplication.job_posting_url && (
+              <div className="mt-3 text-center">
+                <a 
+                  href={selectedApplication.job_posting_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-sm text-[var(--primary)] hover:underline inline-flex items-center"
+                >
+                  See job posting <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 ml-1">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </a>
+              </div>
+            )}
           </Card>
         )}
         {/* Mark as Submitted at the very bottom, within sidebar, green */}
@@ -573,9 +578,13 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
             <>
               {activeTab === 'cover' && (
                 <Card className="p-8 flex-grow flex flex-col relative h-full min-h-[500px] max-w-3xl mx-auto" role="tabpanel" id="tabpanel-cover" aria-labelledby="tab-cover">
-                  <div className="absolute top-8 right-8 flex gap-2">
-                    <Button variant="outline" onClick={() => {navigator.clipboard.writeText(currentCoverLetter); toast.success('Cover letter copied!')}} aria-label="Copy cover letter">Copy</Button>
-                    <Button variant="primary" onClick={() => {toast.success('Cover letter saved!')}} aria-label="Save cover letter">Save</Button>
+                  <div className="absolute top-8 right-8 flex gap-3">
+                    <Button variant="ghost" size="icon" onClick={() => {navigator.clipboard.writeText(currentCoverLetter); toast.success('Cover letter copied!')}} aria-label="Copy cover letter">
+                      <Copy size={18} />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => {toast.success('Cover letter saved!')}} aria-label="Save cover letter">
+                      <Save size={18} />
+                    </Button>
                   </div>
                   <h2 className="font-semibold text-xl mb-6 text-[var(--foreground)]">Cover Letter</h2>
                   <textarea
@@ -586,13 +595,6 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
                     aria-label="Cover letter editor"
                   />
                   <div className="flex justify-end items-center gap-2 mt-4">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleCoverLetterUpdate('')}
-                      aria-label="Reset cover letter"
-                    >
-                      Reset
-                    </Button>
                     <Button
                       variant="primary"
                       onClick={() => {toast.success('Cover letter saved!')}}
@@ -613,7 +615,7 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
                       <ResumeViewer 
                         pdfUrl={resumePdfUrl} 
                         resumeText={resumeContent}
-                        suggestions={[]}
+                        suggestions={suggestions}
                         onHighlightClick={handleHighlightClick}
                         activeSuggestionId={activeSuggestionId}
                       />
@@ -622,7 +624,7 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
                     <div className="lg:col-span-1 order-1 lg:order-2">
                       <h3 className="font-medium text-base mb-4">Suggested Improvements</h3>
                       <SuggestionsList 
-                        suggestions={[]}
+                        suggestions={suggestions}
                         onAcceptSuggestion={handleAcceptSuggestion}
                         activeSuggestionId={activeSuggestionId}
                       />

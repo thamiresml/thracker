@@ -173,7 +173,7 @@ export async function getLatestResumePath(userId: string): Promise<string | null
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Error getting latest resume path:', errorMessage);
-    return null;
+    throw err;
   }
 }
 
@@ -226,7 +226,7 @@ export async function getLatestCoverLetterPath(userId: string): Promise<string |
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     console.error('Error getting latest base cover letter path:', errorMessage);
-    return null; // Return null to indicate failure gracefully
+    throw err;
   }
 }
 

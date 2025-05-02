@@ -6,9 +6,9 @@ import { Contact } from '@/types/networking';
 import { Lightbulb, Mail, Plus, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import CompanyLogo from '@/components/CompanyLogo';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface NetworkingCopilotProps {
   selectedCompanyId?: number;
@@ -236,12 +236,17 @@ Best regards,
               ? "You don't have any contacts at this company yet." 
               : "You haven't added any networking contacts yet."}
           </p>
-          <Link href="/networking/add-contact">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" /> 
-              Add Contact
-            </Button>
-          </Link>
+          <Button
+            onClick={() => {
+              toast.info("To add contacts, please visit the Networking section from the main menu", {
+                duration: 4000,
+                position: 'top-center',
+              })
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" /> 
+            Add Contact
+          </Button>
         </div>
       </Card>
     );
@@ -324,14 +329,7 @@ Best regards,
                   {contact.name}
                 </div>
                 <div className="text-xs text-gray-500 flex items-center">
-                  {contact.company?.logo ? (
-                    <CompanyLogo 
-                      logo={contact.company.logo} 
-                      name={contact.company.name} 
-                      size="sm" 
-                    />
-                  ) : null}
-                  <span className="ml-1">{contact.role} at {contact.company?.name}</span>
+                  <span>{contact.role} at {contact.company?.name}</span>
                 </div>
                 {contact.last_interaction_date && (
                   <div className="text-xs text-gray-400 mt-1">

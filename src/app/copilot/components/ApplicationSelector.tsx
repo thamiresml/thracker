@@ -8,12 +8,14 @@ interface ApplicationSelectorProps {
   applications: Application[];
   selectedApplication: Application | null;
   onSelect: (application: Application) => void;
+  className?: string;
 }
 
 export default function ApplicationSelector({ 
   applications, 
   selectedApplication, 
-  onSelect 
+  onSelect,
+  className = ''
 }: ApplicationSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,7 +47,7 @@ export default function ApplicationSelector({
   }, [isOpen]);
   
   return (
-    <div className="relative w-full">
+    <div className={`relative w-full ${className}`}>
       <button
         onClick={toggleDropdown}
         className="flex w-full items-center justify-between rounded-md border border-gray-300 px-4 py-2 text-left shadow-sm"
