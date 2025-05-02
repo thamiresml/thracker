@@ -19,7 +19,7 @@ export default function Sidebar({ openAddJobUrlModal }: SidebarProps) {
   };
   
   return (
-    <div className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col fixed">
+    <div className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col fixed overflow-y-auto">
       <div className="px-5 py-4 flex items-center">
         <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 text-transparent bg-clip-text">Thracker</h1>
       </div>
@@ -118,6 +118,7 @@ export default function Sidebar({ openAddJobUrlModal }: SidebarProps) {
         >
           <Bot className={`h-5 w-5 mr-3 ${isActive('/copilot') ? 'text-purple-500' : 'text-gray-400'}`} />
           <span>Application Copilot</span>
+          <span className="ml-2 px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded">Testing</span>
         </Link>
       </nav>
       

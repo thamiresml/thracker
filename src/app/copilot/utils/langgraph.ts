@@ -1,7 +1,6 @@
 'use server';
 
 import { ChatOpenAI } from '@langchain/openai';
-import { RunnableLambda } from '@langchain/core/runnables';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { JsonOutputParser } from '@langchain/core/output_parsers';
 import { z } from 'zod';
@@ -13,6 +12,7 @@ function getDefaultResume() {
 }
 
 // === State Definition ===
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const stateSchema = z.object({
   // Input state
   resume: z.string().describe("The user's resume content"),
@@ -24,11 +24,6 @@ const stateSchema = z.object({
     industry: z.string().optional(),
   }).describe("Details about the job"),
   baseCoverLetter: z.string().optional().describe("Base cover letter content (if provided)"),
-  agentSettings: z.object({
-    tone: z.string(),
-    focusArea: z.string(), 
-    detailLevel: z.string()
-  }).describe("Settings for the AI agent"),
   
   // Processing state
   currentStep: z.string().default("analyze"),
@@ -36,11 +31,23 @@ const stateSchema = z.object({
   // Output state
   compatibilityScore: z.number().optional(),
   analysisText: z.string().optional(),
+  scoringBreakdown: z.object({
+    requiredExperience: z.number().optional(),
+    technicalSkills: z.number().optional(),
+    educationRequirements: z.number().optional(),
+    industryKnowledge: z.number().optional(),
+    additionalRequirements: z.number().optional()
+  }).optional(),
   suggestions: z.array(z.object({
     original: z.string(),
     suggestion: z.string()
   })).optional(),
   coverLetter: z.string().optional(),
+  coverLetterChanges: z.array(z.object({
+    original: z.string().optional(),
+    modified: z.string(),
+    reason: z.string()
+  })).optional(),
   error: z.string().optional()
 });
 
@@ -52,12 +59,13 @@ const graphChannels: StateGraphArgs<State>['channels'] = {
   jobDescription: { value: (x, y) => y, default: () => "" },
   jobDetails: { value: (x, y) => y, default: () => ({ position: "", company: "" }) },
   baseCoverLetter: { value: (x, y) => y, default: () => undefined },
-  agentSettings: { value: (x, y) => y, default: () => ({ tone: "", focusArea: "", detailLevel: "" }) },
   currentStep: { value: (x, y) => y, default: () => "analyze" },
   compatibilityScore: { value: (x, y) => y, default: () => undefined },
   analysisText: { value: (x, y) => y, default: () => undefined },
+  scoringBreakdown: { value: (x, y) => y, default: () => undefined },
   suggestions: { value: (x, y) => y, default: () => undefined },
   coverLetter: { value: (x, y) => y, default: () => undefined },
+  coverLetterChanges: { value: (x, y) => y, default: () => undefined },
   error: { value: (x, y) => y, default: () => undefined },
 };
 
@@ -73,19 +81,59 @@ const getModel = () => {
 const analyze = async (state: State): Promise<Partial<State>> => {
   const model = getModel();
   
-  const prompt = ChatPromptTemplate.fromMessages([
-    ["system", `You are an expert Application Copilot assisting a job seeker.
-Analyze the provided Resume against the Job Description and calculate a compatibility score (0-100).
-Provide a detailed analysis of how well the resume matches the job requirements.
+  const systemPrompt = `You are an expert Application Copilot assisting a job seeker.
+Your task is to analyze the provided Resume against the Job Description and calculate a detailed compatibility score.
+You MUST respond with a valid JSON object following the scoring criteria below.
 
-Tone: ${state.agentSettings.tone}
-Focus Area: ${state.agentSettings.focusArea}
-Detail Level: ${state.agentSettings.detailLevel}
+Scoring Criteria:
+1. Required Experience (30 points):
+   - Evaluate if the candidate meets the minimum years of experience
+   - Consider relevance of past roles to the position
+   - Assess leadership/management experience if required
 
-Your response should be a JSON object with:
-- compatibilityScore (number between 0-100)
-- analysis (detailed text explaining the match)`],
-    ["human", `# Resume
+2. Technical Skills Match (30 points):
+   - Compare required technical skills with candidate's skills
+   - Give higher weight to must-have skills
+   - Consider skill proficiency levels if mentioned
+
+3. Education Requirements (15 points):
+   - Verify if minimum education requirements are met
+   - Consider relevant certifications
+   - Evaluate field of study relevance
+
+4. Industry Knowledge (15 points):
+   - Assess industry-specific experience
+   - Evaluate domain knowledge
+   - Consider relevant projects or achievements
+
+5. Additional Requirements (10 points):
+   - Location/relocation requirements
+   - Required certifications
+   - Language requirements
+   - Other specific requirements
+
+STRICT RESPONSE FORMAT:
+Return a JSON object with these exact fields (replace example values with your analysis):
+
+{{  // Escaped opening brace
+  "compatibilityScore": 85,
+  "analysis": "Detailed analysis of the match goes here, explaining each category's score",
+  "scoringBreakdown": {{ // Escaped opening brace
+    "requiredExperience": 25,
+    "technicalSkills": 28,
+    "educationRequirements": 12,
+    "industryKnowledge": 12,
+    "additionalRequirements": 8
+  }} // Escaped closing brace
+}} // Escaped closing brace
+
+IMPORTANT:
+- All numbers must be integers
+- Do not include any explanatory text outside the JSON structure
+- The JSON must be properly formatted with double quotes
+- The total score should be the sum of all breakdown scores`;
+
+  const humanPrompt = `# Resume
 ${state.resume}
 
 # Job Description
@@ -95,22 +143,67 @@ ${state.jobDescription}
 Position: ${state.jobDetails.position}
 Company: ${state.jobDetails.company}
 Location: ${state.jobDetails.location || 'N/A'}
-Industry: ${state.jobDetails.industry || 'N/A'}`]
+Industry: ${state.jobDetails.industry || 'N/A'}
+
+Analyze the resume against this job description and provide the compatibility score in the specified JSON format.`;
+
+  const prompt = ChatPromptTemplate.fromMessages([
+    ["system", systemPrompt],
+    ["human", humanPrompt]
   ]);
   
   try {
     const response = await prompt.pipe(model).pipe(new JsonOutputParser()).invoke({});
-    const responseObj = response as any;
+    const responseObj = response as unknown;
+    
+    // Validate the response format
+    if (!responseObj || typeof responseObj !== 'object' ||
+        'compatibilityScore' in responseObj === false ||
+        'analysis' in responseObj === false ||
+        'scoringBreakdown' in responseObj === false ||
+        typeof (responseObj as {compatibilityScore?: unknown}).compatibilityScore !== 'number' || 
+        typeof (responseObj as {analysis?: unknown}).analysis !== 'string' ||
+        !(responseObj as {scoringBreakdown?: unknown}).scoringBreakdown ||
+        typeof (responseObj as {scoringBreakdown?: unknown}).scoringBreakdown !== 'object') {
+      throw new Error('Invalid response format from model');
+    }
+
+    // Type assertion after validation
+    const typedResponse = responseObj as {
+      compatibilityScore: number;
+      analysis: string;
+      scoringBreakdown: Record<string, number>;
+    };
+
+    // Ensure all scoring breakdown fields are numbers and within valid ranges
+    const validatedScoring = {
+      requiredExperience: Math.min(30, Math.max(0, Math.round(Number(typedResponse.scoringBreakdown.requiredExperience)) || 0)),
+      technicalSkills: Math.min(30, Math.max(0, Math.round(Number(typedResponse.scoringBreakdown.technicalSkills)) || 0)),
+      educationRequirements: Math.min(15, Math.max(0, Math.round(Number(typedResponse.scoringBreakdown.educationRequirements)) || 0)),
+      industryKnowledge: Math.min(15, Math.max(0, Math.round(Number(typedResponse.scoringBreakdown.industryKnowledge)) || 0)),
+      additionalRequirements: Math.min(10, Math.max(0, Math.round(Number(typedResponse.scoringBreakdown.additionalRequirements)) || 0))
+    };
+
+    // Calculate total score from the breakdown to ensure consistency
+    const totalScore = Object.values(validatedScoring).reduce((a, b) => a + b, 0);
     
     return {
-      compatibilityScore: responseObj.compatibilityScore,
-      analysisText: responseObj.analysis,
+      compatibilityScore: totalScore,
+      analysisText: typedResponse.analysis,
+      scoringBreakdown: validatedScoring,
       currentStep: "suggest"
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in analyze step:", error);
+    // Provide more detailed error information
+    const errorMessage = error instanceof Error
+      ? error.message.includes('JSON')
+        ? 'Failed to parse AI response. Please try again.'
+        : `Failed to analyze resume: ${error.message}`
+      : 'An unknown error occurred during analysis';
+    
     return {
-      error: `Failed to analyze resume: ${error.message}`,
+      error: errorMessage,
       currentStep: END
     };
   }
@@ -123,10 +216,6 @@ const suggest = async (state: State): Promise<Partial<State>> => {
   const prompt = ChatPromptTemplate.fromMessages([
     ["system", `You are an expert Application Copilot assisting a job seeker.
 Generate specific suggestions to improve the resume for this job application.
-
-Tone: ${state.agentSettings.tone}
-Focus Area: ${state.agentSettings.focusArea}
-Detail Level: ${state.agentSettings.detailLevel}
 
 Your response should be a JSON object with:
 - suggestions: an array of objects each containing:
@@ -153,16 +242,29 @@ Generate 3-5 specific suggestions to improve this resume for the job.`]
   
   try {
     const response = await prompt.pipe(model).pipe(new JsonOutputParser()).invoke({});
-    const responseObj = response as any;
+    const responseObj = response as unknown;
+    
+    // Validate the response has suggestions array
+    if (!responseObj || typeof responseObj !== 'object' || !('suggestions' in responseObj)) {
+      throw new Error('Invalid response format: missing suggestions array');
+    }
+    
+    // Type assertion after validation
+    const typedResponse = responseObj as {
+      suggestions: Array<{ original: string; suggestion: string }>;
+    };
     
     return {
-      suggestions: responseObj.suggestions,
+      suggestions: typedResponse.suggestions,
       currentStep: "generateCoverLetter"
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in suggest step:", error);
+    const errorMessage = error instanceof Error 
+      ? `Failed to generate suggestions: ${error.message}`
+      : 'An unknown error occurred while generating suggestions';
     return {
-      error: `Failed to generate suggestions: ${error.message}`,
+      error: errorMessage,
       currentStep: END
     };
   }
@@ -172,22 +274,52 @@ Generate 3-5 specific suggestions to improve this resume for the job.`]
 const generateCoverLetter = async (state: State): Promise<Partial<State>> => {
   const model = getModel();
   
-  let systemPrompt = `You are an expert Application Copilot assisting a job seeker.\nGenerate a tailored cover letter for this job application.\n\nTone: ${state.agentSettings.tone}\nFocus Area: ${state.agentSettings.focusArea}\nDetail Level: ${state.agentSettings.detailLevel}`;
+  const systemPrompt = `You are an expert Application Copilot assisting a job seeker.
+Generate a tailored cover letter for this job application.
 
-  if (state.baseCoverLetter) {
-    systemPrompt += `\n\nA base cover letter is provided. You MUST use it as the foundation. Only modify, add, or remove sentences as needed to tailor it to this job. Do NOT rewrite from scratch unless absolutely necessary.`;
-  }
-  
-  systemPrompt += `\n\nYour response should be a JSON object with:\n- coverLetter: the complete cover letter text`;
-  
-  let userPrompt = `# Resume\n${state.resume}\n\n# Job Description\n${state.jobDescription}\n\n# Job Details\nPosition: ${state.jobDetails.position}\nCompany: ${state.jobDetails.company}\nLocation: ${state.jobDetails.location || 'N/A'}\nIndustry: ${state.jobDetails.industry || 'N/A'}`;
+${state.baseCoverLetter ? `IMPORTANT: A base cover letter is provided. You MUST:
+1. Maintain the overall structure and format of the base letter
+2. Keep personal anecdotes and unique experiences from the original
+3. Only modify sentences that need specific tailoring to this job
+4. Preserve the writer's voice and style
+5. Keep the same paragraph structure where possible
+6. Only add new paragraphs if absolutely necessary for missing critical information
+7. Ensure any modified sentences maintain the same tone and writing style as the original
 
-  if (state.baseCoverLetter) {
-    userPrompt += `\n\n# Base Cover Letter\n${state.baseCoverLetter}\n\nEdit the base cover letter below to best fit the job, but keep as much of the original structure and content as possible. Only change what is needed.`;
-  }
-  
-  userPrompt += `\n\nGenerate a tailored cover letter for this job application.`;
-  
+The goal is to make minimal but impactful changes that tailor the letter to this specific job.` : ''}
+
+Your response MUST be a valid JSON object.
+All string values within the JSON MUST be properly escaped (e.g., newline characters should be represented as \\n).
+JSON Structure:
+- coverLetter: the complete cover letter text (as a single JSON string)
+${state.baseCoverLetter ? '- changes: array of specific changes made and why they were necessary' : ''}`;
+
+  const userPrompt = `# Resume
+${state.resume}
+
+# Job Description
+${state.jobDescription}
+
+# Job Details
+Position: ${state.jobDetails.position}
+Company: ${state.jobDetails.company}
+Location: ${state.jobDetails.location || 'N/A'}
+Industry: ${state.jobDetails.industry || 'N/A'}
+
+# Analysis from Previous Steps
+Compatibility Score: ${state.compatibilityScore}
+Key Strengths: ${state.analysisText}
+
+${state.baseCoverLetter ? `# Base Cover Letter
+${state.baseCoverLetter}
+
+Instructions:
+1. Review the base cover letter above
+2. Make minimal necessary changes to tailor it to this job
+3. Focus on highlighting relevant experience and skills from the analysis
+4. Maintain the personal voice and unique experiences
+5. Ensure all company and position details are correctly updated` : 'Generate a compelling cover letter that highlights the key strengths identified in the analysis.'}`;
+
   const prompt = ChatPromptTemplate.fromMessages([
     ["system", systemPrompt],
     ["human", userPrompt]
@@ -195,16 +327,31 @@ const generateCoverLetter = async (state: State): Promise<Partial<State>> => {
   
   try {
     const response = await prompt.pipe(model).pipe(new JsonOutputParser()).invoke({});
-    const responseObj = response as any;
+    const responseObj = response as unknown;
+    
+    // Validate the response has coverLetter
+    if (!responseObj || typeof responseObj !== 'object' || !('coverLetter' in responseObj)) {
+      throw new Error('Invalid response format: missing coverLetter');
+    }
+    
+    // Type assertion after validation
+    const typedResponse = responseObj as {
+      coverLetter: string;
+      changes?: Array<{ modified: string; reason: string; original?: string }>;
+    };
     
     return {
-      coverLetter: responseObj.coverLetter,
+      coverLetter: typedResponse.coverLetter,
+      coverLetterChanges: state.baseCoverLetter ? typedResponse.changes : undefined,
       currentStep: END
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in cover letter step:", error);
+    const errorMessage = error instanceof Error
+      ? `Failed to generate cover letter: ${error.message}`
+      : 'An unknown error occurred while generating the cover letter';
     return {
-      error: `Failed to generate cover letter: ${error.message}`,
+      error: errorMessage,
       currentStep: END
     };
   }
@@ -235,14 +382,10 @@ export async function runApplicationCopilot(
     company: string;
     location?: string;
     industry?: string;
-  },
-  agentSettings: {
-    tone: string;
-    focusArea: string;
-    detailLevel: string;
   }
 ) {
   try {
+    console.log('[runApplicationCopilot] Received baseCoverLetter:', baseCoverLetter);
     console.log("Preparing workflow with provided text...");
     
     const workflow = createWorkflow();
@@ -251,7 +394,6 @@ export async function runApplicationCopilot(
       resume: resumeText || getDefaultResume(),
       jobDescription,
       jobDetails,
-      agentSettings,
       baseCoverLetter,
       currentStep: "analyze"
     };
@@ -263,18 +405,22 @@ export async function runApplicationCopilot(
     return {
       compatibilityScore: result.compatibilityScore || 0,
       analysisText: result.analysisText || "",
+      scoringBreakdown: result.scoringBreakdown || {},
       suggestions: Array.isArray(result.suggestions) ? result.suggestions : [],
       coverLetter: result.coverLetter || "",
+      coverLetterChanges: Array.isArray(result.coverLetterChanges) ? result.coverLetterChanges : [],
       error: result.error
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error running application copilot:", error);
     return {
       compatibilityScore: 0,
       analysisText: "",
+      scoringBreakdown: {},
       suggestions: [],
       coverLetter: "",
-      error: `Workflow error: ${error.message}`
+      coverLetterChanges: [],
+      error: `Workflow error: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }

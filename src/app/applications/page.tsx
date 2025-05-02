@@ -43,17 +43,15 @@ export default async function ApplicationsPage({
 }) {
   const supabase = await createClient();
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
+  // Check authentication
+  const { 
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
     redirect('/auth/login');
   }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   // ✅ Await searchParams (required in Next.js 15)
   const awaitedParams = await searchParams;

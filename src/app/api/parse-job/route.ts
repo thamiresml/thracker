@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+// Use createServerClient from @supabase/ssr for Route Handlers
+// import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import * as cheerio from 'cheerio';
 
 interface JobData {
@@ -553,9 +556,31 @@ async function fetchAndParse(url: string) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
+  const cookieStore = await cookies(); // Await the cookie store
+  // Create client using ssr helper INSIDE the route handler
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        set(_name: string, _value: string, _options: Record<string, unknown>) {
+          console.warn('[API Route] Attempted to set cookie in POST handler - skipped');
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        remove(_name: string, _options: Record<string, unknown>) {
+          console.warn('[API Route] Attempted to remove cookie in POST handler - skipped');
+        },
+      },
+    }
+  );
+
   try {
-    const { url } = await request.json();
+    const { url } = await req.json();
 
     if (!url) {
       return NextResponse.json(
@@ -574,13 +599,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check authentication
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
+    // Verify authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error(`[API /parse-job] Auth Error: ${authError?.message || 'No user session'}`);
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
@@ -595,9 +617,12 @@ export async function POST(request: Request) {
     
   } catch (error) {
     console.error('Error parsing job:', error);
+    // Return appropriate error response based on fetchAndParse error message
+    const errorMessage = (error instanceof Error) ? error.message : 'Failed to parse job information';
+    const status = errorMessage.includes('Oh no!') ? 400 : 500; // Bad request if scraping blocked
     return NextResponse.json(
-      { message: 'Failed to parse job information' },
-      { status: 500 }
+      { message: errorMessage },
+      { status: status }
     );
   }
 } 

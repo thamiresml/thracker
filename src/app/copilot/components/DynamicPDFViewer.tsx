@@ -5,9 +5,15 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import type { PDFViewerProps } from './PDFViewer';
+// Remove the direct worker import
+// import workerSrc from 'pdfjs-dist/build/pdf.worker.entry';
 
-// Initialize PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Set worker source using new URL() and import.meta.url
+// This requires pdfjs-dist to be installed
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs', // Use the .mjs extension
+  import.meta.url
+).toString();
 
 // This component will only be loaded on the client
 export default function DynamicPDFViewer({ url, className = '' }: PDFViewerProps) {

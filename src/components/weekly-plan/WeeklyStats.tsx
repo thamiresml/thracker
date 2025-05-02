@@ -69,7 +69,8 @@ export default function WeeklyStats({ startDate, endDate, userId }: WeeklyStatsP
           .from('tasks')
           .select('id, status')
           .eq('user_id', userId)
-          .eq('week_start_date', startDateStr);
+          .gte('week_start_date', startDateStr)
+          .lte('week_start_date', endDateStr);
         
         if (tasksError) throw tasksError;
         

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
 export async function GET() {
@@ -16,10 +16,10 @@ export async function GET() {
     }
     
     return NextResponse.json({ message: 'Migration completed successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error running migration:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to run migration' },
+      { error: error instanceof Error ? error.message : 'Failed to run migration' },
       { status: 500 }
     );
   }

@@ -1,17 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+// Use createServerClient from @supabase/ssr for Route Handlers
+// import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { runApplicationCopilot } from '@/app/copilot/utils/langgraph';
 import { getLatestResumePdfFileNameServer } from './server-utils';
 import { fetchAndParsePdfFromSupabase } from '@/app/copilot/utils/pdf';
 
 export async function POST(req: NextRequest) {
+  const cookieStore = await cookies(); // Await the cookie store
+  // Create client using ssr helper INSIDE the route handler
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        set(_name: string, _value: string, _options: Record<string, unknown>) {
+          // Cannot set cookies directly in POST
+          console.warn('[API Route] Attempted to set cookie in POST handler - skipped');
+        },
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        remove(_name: string, _options: Record<string, unknown>) {
+          // Cannot set cookies directly in POST
+          console.warn('[API Route] Attempted to remove cookie in POST handler - skipped');
+        },
+      },
+    }
+  );
+
   try {
     // Get the request body
     const body = await req.json();
     // Extract applicationId, agentSettings, and baseCoverLetter
     const { 
       applicationId, 
-      agentSettings, 
       baseCoverLetter // (can be null/undefined)
     } = body;
 
@@ -20,14 +46,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing applicationId' }, { status: 400 });
     }
 
-    // Create Supabase client
-    const supabase = await createClient();
     // Verify authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error(`[API /copilot] Auth Error: ${authError?.message || 'No user session'}`);
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-    const userId = session.user.id;
+    const userId = user.id;
 
     // Fetch the application details
     console.log(`Fetching application details for ID: ${applicationId}`);
@@ -70,12 +95,7 @@ export async function POST(req: NextRequest) {
       resumeText,
       baseCoverLetter, // Pass base cover letter text from body (can be undefined)
       jobDescription,
-      jobDetails,
-      agentSettings || {
-        tone: 'professional',
-        focusArea: 'technical',
-        detailLevel: 'balanced'
-      }
+      jobDetails
     );
 
     console.log('Copilot workflow finished. Formatting results...');
@@ -97,7 +117,7 @@ export async function POST(req: NextRequest) {
       error: result.error
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in copilot API route:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred processing your request.' }, 

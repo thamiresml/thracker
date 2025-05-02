@@ -87,12 +87,12 @@ export default function DocumentsSection({ userId }: DocumentsSectionProps) {
   }, [fetchDocuments]);
   
   // Upload file immediately upon selection
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>, fileType: 'resume' | 'cover_letter') => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>, fileType: 'resume' | 'cover_letter' | 'base_cover_letter') => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const setUploading = fileType === 'resume' ? setUploadingResume : setUploadingCoverLetter;
-    const inputRef = fileType === 'resume' ? resumeInputRef : coverLetterInputRef;
+    const setUploading = fileType === 'resume' ? setUploadingResume : fileType === 'cover_letter' ? setUploadingCoverLetter : setUploadingCoverLetter;
+    const inputRef = fileType === 'resume' ? resumeInputRef : fileType === 'cover_letter' ? coverLetterInputRef : coverLetterInputRef;
 
     setUploading(true);
     setMessage('');
@@ -271,11 +271,11 @@ export default function DocumentsSection({ userId }: DocumentsSectionProps) {
       <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
-            <FileText className="text-purple-600 mr-2 h-5 w-5" />
-            <h3 className="font-semibold text-lg text-gray-800">Cover Letters</h3>
+            <FileText className="text-indigo-600 mr-2 h-5 w-5" />
+            <h3 className="font-semibold text-lg text-gray-800">Base Cover Letter</h3>
            </div>
            {hasCoverLetter && !uploadingCoverLetter && (
-             <label className="flex items-center px-3 py-1.5 border border-purple-600 text-sm font-medium rounded-md text-purple-600 bg-white hover:bg-purple-50 cursor-pointer transition-colors">
+             <label className="flex items-center px-3 py-1.5 border border-indigo-600 text-sm font-medium rounded-md text-indigo-600 bg-white hover:bg-indigo-50 cursor-pointer transition-colors">
                <Upload className="h-4 w-4 mr-1.5" />
                Upload New
                <input
@@ -283,7 +283,7 @@ export default function DocumentsSection({ userId }: DocumentsSectionProps) {
                  type="file"
                  className="sr-only"
                  accept=".pdf,.doc,.docx"
-                 onChange={(e) => handleFileChange(e, 'cover_letter')}
+                 onChange={(e) => handleFileChange(e, 'base_cover_letter')}
                  disabled={uploadingCoverLetter}
                />
              </label>
@@ -297,19 +297,19 @@ export default function DocumentsSection({ userId }: DocumentsSectionProps) {
         </div>
         
         {!hasCoverLetter && !uploadingCoverLetter && (
-          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 transition-colors hover:border-purple-300">
+          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 transition-colors hover:border-indigo-300">
             <div className="space-y-3 text-center">
                 <DownloadCloud className="h-10 w-10 text-gray-400 mx-auto" />
                 <p className="text-sm text-gray-600">
-                  Upload cover letter templates (.pdf, .doc, .docx)
+                  Upload your base cover letter (.pdf, .doc, .docx)
                 </p>
-                <label className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 cursor-pointer">
+                <label className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer">
                   <input
                     ref={coverLetterInputRef}
                     type="file"
                     className="sr-only"
                     accept=".pdf,.doc,.docx"
-                    onChange={(e) => handleFileChange(e, 'cover_letter')}
+                    onChange={(e) => handleFileChange(e, 'base_cover_letter')}
                     disabled={uploadingCoverLetter}
                   />
                   Choose file

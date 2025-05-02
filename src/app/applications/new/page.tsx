@@ -19,9 +19,9 @@ export default async function NewApplicationPage({
   const resolvedParams = await searchParams;
   const supabase = await createClient();
   
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session) {
+  // Check authentication with getUser for better security
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
     redirect('/auth/login');
   }
   

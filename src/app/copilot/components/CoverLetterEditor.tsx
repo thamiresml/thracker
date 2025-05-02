@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Loader2 } from 'lucide-react';
@@ -25,6 +25,16 @@ export default function CoverLetterEditor({
   loading,
   jobDetails
 }: CoverLetterEditorProps) {
+  // Move ref and useEffect here, outside of any conditionals
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') textareaRef.current?.blur();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -36,16 +46,6 @@ export default function CoverLetterEditor({
     );
   }
   
-  // Escape key blurs textarea
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') textareaRef.current?.blur();
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, []);
-
   return (
     <div className="space-y-4 flex-grow flex flex-col">
       {jobDetails && (
@@ -88,7 +88,7 @@ export default function CoverLetterEditor({
         )}
         
         <Button
-          variant="default"
+          variant="primary"
           onClick={onSave}
           aria-label="Save cover letter"
         >

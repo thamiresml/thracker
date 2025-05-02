@@ -23,8 +23,8 @@ export default async function EditApplicationPage({ params }: PageProps) {
   const supabase = await createClient();
   
   // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
     redirect('/auth/login');
   }
   
@@ -36,7 +36,7 @@ export default async function EditApplicationPage({ params }: PageProps) {
       companies (id, name)
     `)
     .eq('id', id)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single();
   
   if (error || !application) {

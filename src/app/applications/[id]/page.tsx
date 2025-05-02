@@ -10,6 +10,34 @@ interface PageProps {
   }>;
 }
 
+interface Contact {
+  id: string;
+  name: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface Interaction {
+  id: string;
+  contact_id?: string;
+  contact_name: string;
+  contact_role: string;
+  contact_email?: string;
+  contact_phone?: string;
+  interaction_type: string;
+  interaction_date: string;
+  notes?: string;
+}
+
+interface InteractionData {
+  id: string;
+  type: string;
+  interaction_date: string;
+  notes?: string;
+  contact?: Contact;
+}
+
 export const dynamic = 'force-dynamic';
 
 export default async function ApplicationDetailPage({ params }: PageProps) {
@@ -54,7 +82,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
   }
   
   // Initialize interactions as empty array
-  let interactions = [];
+  let interactions: Interaction[] = [];
   
   // Then get interactions only for contacts from this company
   if (companyContacts && companyContacts.length > 0) {
@@ -67,7 +95,9 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
         contact:contacts (
           id,
           name,
-          role
+          role,
+          email,
+          phone
         )
       `)
       .in('contact_id', contactIds)
@@ -77,7 +107,18 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
     if (interactionError) {
       console.error('Error fetching interactions:', interactionError);
     } else {
-      interactions = interactionData || [];
+      // Map the data to the expected format in ApplicationDetail component
+      interactions = (interactionData as InteractionData[] || []).map(interaction => ({
+        id: interaction.id,
+        contact_id: interaction.contact?.id,
+        contact_name: interaction.contact?.name || 'Unknown',
+        contact_role: interaction.contact?.role || '',
+        contact_email: interaction.contact?.email,
+        contact_phone: interaction.contact?.phone,
+        interaction_type: interaction.type,
+        interaction_date: interaction.interaction_date,
+        notes: interaction.notes
+      }));
     }
   }
   

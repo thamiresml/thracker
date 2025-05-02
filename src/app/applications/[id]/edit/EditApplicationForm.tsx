@@ -20,7 +20,10 @@ interface ApplicationFormData {
   position: string;
   status: string;
   appliedDate: string;
+  location?: string;
+  salary?: string;
   jobPostingUrl?: string;
+  jobDescription?: string;
   notes?: string;
 }
 
@@ -96,7 +99,10 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           setValue('position', application.position);
           setValue('status', application.status);
           setValue('appliedDate', application.applied_date);
+          setValue('location', application.location || '');
+          setValue('salary', application.salary || '');
           setValue('jobPostingUrl', application.job_posting_url || '');
+          setValue('jobDescription', application.job_description || '');
           setValue('notes', application.notes || '');
         }
       } catch (err: unknown) {
@@ -183,7 +189,10 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           position: data.position,
           status: data.status,
           applied_date: data.appliedDate,
+          location: data.location || null,
+          salary: data.salary || null,
           job_posting_url: data.jobPostingUrl || null,
+          job_description: data.jobDescription || null,
           notes: data.notes || null
         })
         .eq('id', applicationId);
@@ -380,6 +389,32 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           )}
         </div>
 
+        <div>
+          <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+            Location
+          </label>
+          <input
+            type="text"
+            id="location"
+            {...register('location')}
+            placeholder="Remote, New York, etc."
+            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 h-[42px]"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="salary" className="block text-sm font-medium text-gray-700 mb-1">
+            Salary/Compensation
+          </label>
+          <input
+            type="text"
+            id="salary"
+            {...register('salary')}
+            placeholder="$100,000 - $120,000/year"
+            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 h-[42px]"
+          />
+        </div>
+
         <div className="md:col-span-2">
           <label htmlFor="jobPostingUrl" className="block text-sm font-medium text-gray-700 mb-1">
             Job Posting URL
@@ -387,13 +422,23 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           <input
             type="url"
             id="jobPostingUrl"
-            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 h-[42px]"
-            placeholder="e.g. https://company.com/jobs/123"
             {...register('jobPostingUrl')}
+            placeholder="https://example.com/jobs/..."
+            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 h-[42px]"
           />
-          <p className="mt-1 text-xs text-gray-500">
-            Link to the original job posting (optional)
-          </p>
+        </div>
+
+        <div className="md:col-span-2">
+          <label htmlFor="jobDescription" className="block text-sm font-medium text-gray-700 mb-1">
+            Job Description
+          </label>
+          <textarea
+            id="jobDescription"
+            rows={6}
+            {...register('jobDescription')}
+            placeholder="Paste job requirements and description here..."
+            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3 font-mono"
+          />
         </div>
 
         <div className="md:col-span-2">
@@ -402,11 +447,11 @@ export default function EditApplicationForm({ applicationId }: EditApplicationFo
           </label>
           <textarea
             id="notes"
-            rows={5}
-            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3"
-            placeholder="Any notes or additional information..."
+            rows={4}
             {...register('notes')}
-          ></textarea>
+            placeholder="Add any additional notes about this application..."
+            className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3"
+          />
         </div>
       </div>
 

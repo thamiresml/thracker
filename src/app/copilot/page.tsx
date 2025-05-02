@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { Application } from '@/types/common';
 import LoadingState from '@/components/ui/LoadingState';
@@ -36,9 +37,9 @@ export default function CopilotPage() {
         if (error) throw error;
         
         setApplications(data || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching applications:', err);
-        setApplicationsError(err.message || 'Failed to load applications');
+        setApplicationsError(err instanceof Error ? err.message : 'Failed to load applications');
       } finally {
         setLoadingApplications(false);
       }
@@ -71,12 +72,12 @@ export default function CopilotPage() {
             <p className="text-gray-600">
               Add job applications to use the Application Copilot.
             </p>
-            <a 
+            <Link 
               href="/applications/new"
               className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               Add Application
-            </a>
+            </Link>
           </div>
         </div>
       </DashboardLayout>

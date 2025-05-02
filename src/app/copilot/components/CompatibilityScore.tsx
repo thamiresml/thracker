@@ -5,9 +5,16 @@ import { Loader2 } from 'lucide-react';
 interface CompatibilityScoreProps {
   score: number;
   loading: boolean;
+  scoringBreakdown?: {
+    requiredExperience?: number;
+    technicalSkills?: number;
+    educationRequirements?: number;
+    industryKnowledge?: number;
+    additionalRequirements?: number;
+  };
 }
 
-export default function CompatibilityScore({ score, loading }: CompatibilityScoreProps) {
+export default function CompatibilityScore({ score, loading, scoringBreakdown }: CompatibilityScoreProps) {
   const getScoreColor = (score: number) => {
     if (score >= 85) return 'text-[var(--success)]';
     if (score >= 70) return 'text-[var(--warning)]';
@@ -67,6 +74,42 @@ export default function CompatibilityScore({ score, loading }: CompatibilityScor
           </div>
         </div>
       </div>
+      
+      {scoringBreakdown && (
+        <div className="mt-6 space-y-2 text-left">
+          <div className="text-sm font-medium text-[var(--foreground)] mb-3">Score Breakdown</div>
+          {scoringBreakdown.requiredExperience !== undefined && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--muted)]">Experience</span>
+              <span className="text-sm font-medium">{scoringBreakdown.requiredExperience}/30</span>
+            </div>
+          )}
+          {scoringBreakdown.technicalSkills !== undefined && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--muted)]">Technical Skills</span>
+              <span className="text-sm font-medium">{scoringBreakdown.technicalSkills}/30</span>
+            </div>
+          )}
+          {scoringBreakdown.educationRequirements !== undefined && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--muted)]">Education</span>
+              <span className="text-sm font-medium">{scoringBreakdown.educationRequirements}/15</span>
+            </div>
+          )}
+          {scoringBreakdown.industryKnowledge !== undefined && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--muted)]">Industry Knowledge</span>
+              <span className="text-sm font-medium">{scoringBreakdown.industryKnowledge}/15</span>
+            </div>
+          )}
+          {scoringBreakdown.additionalRequirements !== undefined && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-[var(--muted)]">Additional Reqs</span>
+              <span className="text-sm font-medium">{scoringBreakdown.additionalRequirements}/10</span>
+            </div>
+          )}
+        </div>
+      )}
       
       <div className="mt-4 text-sm text-[var(--muted)]">
         Based on job requirements match

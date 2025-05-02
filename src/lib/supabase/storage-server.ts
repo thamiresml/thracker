@@ -1,7 +1,6 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { PDFDocument } from 'pdf-lib';
 
 const BUCKET_NAME = 'user_documents';
 
@@ -26,7 +25,7 @@ async function findAndDownloadTextFileServer(
   supabase: SupabaseClient,
   userId: string, 
   searchTerm: string
-): Promise<{ content: string | null, error: any, foundPath?: string }> {
+): Promise<{ content: string | null, error: Error | null, foundPath?: string }> {
   try {
     // List files in the user's directory
     const { data: files, error: listError } = await supabase.storage
@@ -46,7 +45,7 @@ async function findAndDownloadTextFileServer(
     );
 
     if (!targetFile) {
-      return { content: null, error: { message: `No file found containing '${searchTerm}'`, status: 404 } }; 
+      return { content: null, error: new Error(`No file found containing '${searchTerm}'`), foundPath: undefined }; 
     }
 
     const filePath = `${userId}/${targetFile.name}`;
@@ -68,7 +67,7 @@ async function findAndDownloadTextFileServer(
       // Instead of calling the internal parse API, just return a message or null.
       return { 
         content: null, 
-        error: { message: `PDF text extraction is now handled at upload. Please use the corresponding .txt file.` },
+        error: new Error(`PDF text extraction is now handled at upload. Please use the corresponding .txt file.`),
         foundPath: filePath
       };
     } 
@@ -78,30 +77,31 @@ async function findAndDownloadTextFileServer(
     else {
       return { 
         content: null, 
-        error: { message: `File format .${fileExt} can't be processed directly on server. Only .txt and .pdf (limited) are supported.` },
+        error: new Error(`File format .${fileExt} can't be processed directly on server. Only .txt and .pdf (limited) are supported.`),
         foundPath: filePath
       };
     }
 
     return { content, error: null, foundPath: filePath };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[Server Storage] Failed to find/download file containing '${searchTerm}':`, error);
-    const errorMessage = (error instanceof Error) ? error.message : String(error);
-    if (errorMessage.includes('Not found')) {
-       return { content: null, error: { message: 'File not found containing ' + searchTerm, status: 404 } };
+    const errorToReturn = error instanceof Error ? error : new Error(String(error));
+    if (errorToReturn.message.includes('Not found')) {
+       // Specific error for not found
+       return { content: null, error: new Error(`File not found containing '${searchTerm}'`) };
     }
-    return { content: null, error: error };
+    return { content: null, error: errorToReturn };
   }
 }
 
 // Server-side function to download the latest resume
-export async function downloadResumeServer(userId: string): Promise<{ content: string | null, error: any }> {
+export async function downloadResumeServer(userId: string): Promise<{ content: string | null, error: Error | null }> {
    const supabase = await createSupabaseServerClient();
    console.log(`[Server Storage] Attempting to download resume for user ${userId}...`);
    const result = await findAndDownloadTextFileServer(supabase, userId, 'resume');
    if (result.content) {
      console.log(`[Server Storage] Resume found and downloaded for user ${userId}.`);
-   } else if (result.error?.status === 404) {
+   } else if (result.error?.message.includes('File not found')) {
      console.log(`[Server Storage] No resume found for user ${userId}.`);
    } else {
      console.error(`[Server Storage] Error downloading resume for user ${userId}:`, result.error);
@@ -110,20 +110,20 @@ export async function downloadResumeServer(userId: string): Promise<{ content: s
 }
 
 // Server-side function to download the latest base cover letter
-export async function downloadBaseCoverLetterServer(userId: string): Promise<{ content: string | null, error: any }> {
+export async function downloadBaseCoverLetterServer(userId: string): Promise<{ content: string | null, error: Error | null }> {
   const supabase = await createSupabaseServerClient();
   console.log(`[Server Storage] Attempting to download base cover letter for user ${userId}...`);
   let result = await findAndDownloadTextFileServer(supabase, userId, 'base_cover_letter');
-  if (!result.content && result.error?.status === 404) {
+  if (!result.content && result.error?.message.includes('File not found')) {
     result = await findAndDownloadTextFileServer(supabase, userId, 'cover_letter_template');
   }
-  if (!result.content && result.error?.status === 404) {
+  if (!result.content && result.error?.message.includes('File not found')) {
      result = await findAndDownloadTextFileServer(supabase, userId, 'template');
   }
 
   if (result.content) {
      console.log(`[Server Storage] Base cover letter found and downloaded for user ${userId}.`);
-  } else if (result.error?.status === 404) {
+  } else if (result.error?.message.includes('File not found')) {
      console.log(`[Server Storage] No base cover letter/template found for user ${userId}.`);
   } else {
      console.error(`[Server Storage] Error downloading base cover letter for user ${userId}:`, result.error);

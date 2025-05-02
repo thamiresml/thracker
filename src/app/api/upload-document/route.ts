@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
 import { tmpdir } from 'os';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
@@ -56,8 +55,9 @@ export async function POST(request: NextRequest) {
       message: 'PDF uploaded successfully',
       pdf: { name: pdfFileName, url: pdfUrlData?.signedUrl },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Upload-document API error:', error);
-    return NextResponse.json({ error: error.message || 'Unexpected error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 } 

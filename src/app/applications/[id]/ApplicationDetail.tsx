@@ -1,10 +1,10 @@
 // src/app/applications/[id]/ApplicationDetail.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Briefcase, Calendar, Clock, ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { Briefcase, Calendar, Clock, ArrowLeft, Edit, Trash2, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 import CompanyLogo from '@/components/CompanyLogo';
@@ -16,6 +16,7 @@ interface ApplicationDetailProps {
     applied_date: string;
     status: string;
     job_posting_url?: string;
+    job_description?: string;
     notes?: string;
     company_id: string;
     companies?: {
@@ -26,8 +27,11 @@ interface ApplicationDetailProps {
   };
   interactions: Array<{
     id: string;
+    contact_id?: string;
     contact_name: string;
     contact_role: string;
+    contact_email?: string;
+    contact_phone?: string;
     interaction_type: string;
     interaction_date: string;
     notes?: string;
@@ -40,6 +44,12 @@ export default function ApplicationDetail({ application, interactions }: Applica
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showJobDescription, setShowJobDescription] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const newNoteRef = useRef<HTMLTextAreaElement>(null);
   
   const handleDelete = async () => {
     try {
@@ -63,6 +73,42 @@ export default function ApplicationDetail({ application, interactions }: Applica
       setError(errorMessage);
       setIsDeleting(false);
       setShowDeleteModal(false);
+    }
+  };
+  
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+    
+    try {
+      setIsSavingNote(true);
+      setError(null);
+      
+      // Combine existing notes with new note
+      const updatedNotes = application.notes 
+        ? `${application.notes}\n\n${new Date().toLocaleString()}: ${newNote}` 
+        : `${new Date().toLocaleString()}: ${newNote}`;
+      
+      const { error } = await supabase
+        .from('applications')
+        .update({ notes: updatedNotes })
+        .eq('id', application.id);
+      
+      if (error) throw error;
+      
+      // Update local state to reflect changes immediately
+      application.notes = updatedNotes;
+      setNewNote('');
+      setIsAddingNote(false);
+      setShowNotes(true); // Show notes section after adding
+      
+      // Force a complete refresh to get the latest data
+      router.refresh();
+    } catch (err: unknown) {
+      console.error('Error adding note:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
+    } finally {
+      setIsSavingNote(false);
     }
   };
   
@@ -193,16 +239,127 @@ export default function ApplicationDetail({ application, interactions }: Applica
               )}
             </div>
             
-            {application.notes && (
+            {/* Job Description with toggle */}
+            {application.job_description && (
               <div className="mt-6">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Notes</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <button 
+                    onClick={() => setShowJobDescription(!showJobDescription)}
+                    className="flex items-center text-left text-sm font-medium text-gray-900"
+                  >
+                    <div className="flex items-center">
+                      <FileText className="h-4 w-4 text-gray-400 mr-2" />
+                      <span>Job Requirements</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setShowJobDescription(!showJobDescription)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    {showJobDescription ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {showJobDescription && (
+                  <div className="bg-gray-50 rounded-md p-4 text-sm text-gray-600">
+                    {application.job_description.split('\n').map((line: string, i: number) => (
+                      <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Notes with toggle */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-2">
+                <button 
+                  onClick={() => setShowNotes(!showNotes)}
+                  className="flex items-center text-left text-sm font-medium text-gray-900"
+                >
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Application Notes</span>
+                  </div>
+                </button>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setShowNotes(!showNotes)}
+                    className="text-gray-400 hover:text-gray-500 mr-3"
+                  >
+                    {showNotes ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
+                  {!isAddingNote && (
+                    <button
+                      onClick={() => {
+                        setIsAddingNote(true);
+                        setTimeout(() => newNoteRef.current?.focus(), 100);
+                      }}
+                      className="text-blue-600 hover:text-blue-800 flex items-center justify-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {isAddingNote && (
+                <div className="mb-4">
+                  <textarea
+                    ref={newNoteRef}
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Add a new note..."
+                    rows={4}
+                    className="w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                  />
+                  <div className="flex justify-end space-x-2 mt-2">
+                    <button
+                      onClick={() => setIsAddingNote(false)}
+                      className="px-3 py-1 text-sm text-gray-700 hover:text-gray-900"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAddNote}
+                      disabled={isSavingNote || !newNote.trim()}
+                      className={`px-3 py-1 text-sm rounded-md text-white ${
+                        isSavingNote || !newNote.trim() 
+                          ? 'bg-blue-400 cursor-not-allowed' 
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
+                    >
+                      {isSavingNote ? 'Saving...' : 'Save Note'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {showNotes && application.notes && (
                 <div className="bg-gray-50 rounded-md p-4 text-sm text-gray-600">
                   {application.notes.split('\n').map((line: string, i: number) => (
                     <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+              
+              {showNotes && !application.notes && !isAddingNote && (
+                <div className="bg-gray-50 rounded-md p-4 text-sm text-gray-500 text-center">
+                  No notes yet. Click "Add Note" to add one.
+                </div>
+              )}
+            </div>
           </div>
           
           <div>
@@ -210,39 +367,66 @@ export default function ApplicationDetail({ application, interactions }: Applica
             
             {interactions && interactions.length > 0 ? (
               <div className="space-y-4">
-                {interactions.map((interaction) => (
-                  <div key={interaction.id} className="bg-gray-50 rounded-md p-4">
-                    <div className="flex justify-between">
-                      <div className="font-medium text-gray-900">{interaction.contact_name}</div>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
-                        {interaction.interaction_type}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-500">{interaction.contact_role}</div>
-                    <div className="text-xs text-gray-400 mt-1">{formatDate(interaction.interaction_date)}</div>
+                {/* Create a map to group interactions by contact_id and get the latest for each */}
+                {(() => {
+                  const contactMap = new Map();
+                  
+                  // Group interactions by contact_id and find latest for each
+                  interactions.forEach(interaction => {
+                    if (!interaction.contact_id) return;
                     
-                    {interaction.notes && (
-                      <div className="mt-2 text-sm text-gray-600 border-t border-gray-200 pt-2">
-                        {interaction.notes}
+                    const existingInteraction = contactMap.get(interaction.contact_id);
+                    const currentDate = new Date(interaction.interaction_date).getTime();
+                    
+                    if (!existingInteraction || new Date(existingInteraction.interaction_date).getTime() < currentDate) {
+                      contactMap.set(interaction.contact_id, interaction);
+                    }
+                  });
+                  
+                  // Convert map values to array
+                  return Array.from(contactMap.values()).map(interaction => (
+                    <div key={interaction.id} className="bg-gray-50 rounded-md p-4">
+                      <div className="flex justify-between">
+                        <div className="font-medium text-gray-900">{interaction.contact_name}</div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
+                          {interaction.interaction_type}
+                        </span>
                       </div>
-                    )}
-                    
-                    <div className="mt-2 text-right">
-                      <Link 
-                        href={`/networking/${interaction.id}`}
-                        className="text-xs text-blue-600 hover:text-blue-800"
-                      >
-                        View Details
-                      </Link>
+                      <div className="text-sm text-gray-500">{interaction.contact_role}</div>
+                      
+                      {/* Contact Information */}
+                      <div className="text-sm text-gray-600 mt-1">
+                        {interaction.contact_email && <div>{interaction.contact_email}</div>}
+                        {interaction.contact_phone && <div>{interaction.contact_phone}</div>}
+                      </div>
+                      
+                      <div className="text-xs text-gray-400 mt-1">{formatDate(interaction.interaction_date)}</div>
+                      
+                      {interaction.notes && (
+                        <div className="mt-2 text-sm text-gray-600 border-t border-gray-200 pt-2">
+                          {interaction.notes}
+                        </div>
+                      )}
+                      
+                      <div className="mt-2 text-right">
+                        {interaction.contact_id && (
+                          <Link 
+                            href={`/networking/contacts/${interaction.contact_id}`}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            View Contact
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             ) : (
               <div className="bg-gray-50 rounded-md p-6 text-center">
                 <p className="text-gray-500 text-sm">No networking interactions yet with this company</p>
                 <Link 
-                  href={`/networking/new?companyId=${application.company_id}`}
+                  href={`/networking/add-interaction?companyId=${application.company_id}`}
                   className="mt-2 inline-block text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
                   Add an interaction
@@ -257,7 +441,7 @@ export default function ApplicationDetail({ application, interactions }: Applica
       {showDeleteModal && (
         <DeleteConfirmationModal
           title="Delete Application"
-          message={`Are you sure you want to delete the application for "${application.position}" at "${application.companies?.name}"? This action cannot be undone.`}
+          message={`Are you sure you want to delete the application for '${application.position}' at '${application.companies?.name}'? This action cannot be undone.`}
           confirmButtonText="Delete Application"
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteModal(false)}
