@@ -356,7 +356,7 @@ export default function ApplicationDetail({ application, interactions }: Applica
               
               {showNotes && !application.notes && !isAddingNote && (
                 <div className="bg-gray-50 rounded-md p-4 text-sm text-gray-500 text-center">
-                  No notes yet. Click "Add Note" to add one.
+                  No notes yet. Click Add Note to add one.
                 </div>
               )}
             </div>
