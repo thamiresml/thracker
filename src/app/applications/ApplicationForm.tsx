@@ -127,11 +127,10 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
     const fetchData = async () => {
       let defaultFormValues: Partial<ApplicationFormData> = {
         appliedDate: getLocalDateString(new Date()),
-        status: 'Saved', // Default status is Saved
+        status: 'Saved',
       };
       
       try {
-        // 1) Load companies
         const { data: companiesData, error: companiesError } = await supabase
           .from('companies')
           .select('id, name, logo')
@@ -141,7 +140,6 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
         setCompanies(companiesData || []);
         setFilteredCompanies(companiesData || []);
 
-        // Apply initialData if creating a new application
         if (!applicationId && initialData) {
           defaultFormValues = {
             ...defaultFormValues,
@@ -150,28 +148,14 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
             location: initialData.location,
             salary: initialData.salary,
             jobPostingUrl: initialData.jobPostingUrl,
-            jobDescription: initialData.jobDescription ?? initialData.notes, // Map notes
-            // Don't set companyId here, use preselectedCompanyId or suggested name
+            jobDescription: initialData.jobDescription ?? initialData.notes,
           };
-          
-          // If no company ID is preselected, but a name was suggested, prefill search
-          if (!preselectedCompanyId && initialData.companyName) {
-            setCompanySearchQuery(initialData.companyName);
-            
-            // After a short delay, show the company dropdown with options to create new
-            setTimeout(() => {
-              setShowCompanyDropdown(true);
-            }, 500);
-          }
         }
 
-        // If preselectedCompanyId is provided, set it (overrides search suggestion)
         if (preselectedCompanyId) {
           defaultFormValues.companyId = preselectedCompanyId;
-          setCompanySearchQuery(''); // Clear search if ID is set
         }
 
-        // 2) If editing, load existing application (overrides initialData & defaults)
         if (applicationId) {
           const { data: application, error: applicationError } = await supabase
             .from('applications')
@@ -180,34 +164,58 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
             .single();
 
           if (applicationError) throw applicationError;
-
           if (application) {
-            // Overwrite defaults with fetched data
             defaultFormValues = {
               companyId: application.company_id,
               position: application.position,
               status: application.status,
-              appliedDate: application.applied_date || undefined, // Handle null date from DB
+              appliedDate: application.applied_date || undefined,
               location: application.location,
               salary: application.salary,
               jobPostingUrl: application.job_posting_url,
               jobDescription: application.job_description
             };
-            setCompanySearchQuery(''); // Clear search when editing
           }
         }
       } catch (err: unknown) {
         const error = err as Error;
         setError(error.message);
       } finally {
-         // Reset the form with the determined default values
          reset(defaultFormValues);
       }
     };
 
     fetchData();
-    // Ensure dependency array includes relevant state/props like reset
-  }, [applicationId, preselectedCompanyId, initialData, setValue, supabase, reset]);
+  }, [applicationId, preselectedCompanyId, initialData, supabase, reset]);
+
+  // Effect to handle initial company state from props (preselectedCompanyId, initialData)
+  useEffect(() => {
+    if (preselectedCompanyId && companies.length > 0) {
+      // Case 1: A company ID is preselected (e.g., from URL parse + DB match)
+      // Ensure form value is set (though reset in fetchData should handle it)
+      setValue('companyId', preselectedCompanyId, { shouldDirty: true, shouldValidate: true }); 
+      const company = companies.find(c => c.id === preselectedCompanyId);
+      setCompanySearchQuery(company ? company.name : ''); // Display the name
+      setShowCompanyDropdown(false); // Dropdown should be closed
+    } else if (initialData?.companyName && !watch('companyId') && !applicationId && companies.length > 0) {
+      // Case 2: Company name suggested, no ID, new app, form companyId not set
+      setCompanySearchQuery(initialData.companyName);
+      setShowCompanyDropdown(true); // Open dropdown to suggest adding or selecting
+    }
+  }, [preselectedCompanyId, initialData, applicationId, companies, setValue, watch]);
+
+  // Effect to ensure UI consistency when selectedCompanyId (actual form value) changes
+  useEffect(() => {
+    if (selectedCompanyId && companies.length > 0) {
+      setShowCompanyDropdown(false); // Always close dropdown if a company is selected
+      const company = companies.find(c => c.id === Number(selectedCompanyId));
+      if (company && companySearchQuery !== company.name) {
+        // If the displayed search query doesn't match the name of the selected company, update it.
+        setCompanySearchQuery(company.name);
+      }
+    } 
+    // No explicit 'else' to open dropdown; that's handled by user input or initialData effect.
+  }, [selectedCompanyId, companies, companySearchQuery, setCompanySearchQuery]);
 
   // Filter companies based on search query
   useEffect(() => {
@@ -231,129 +239,34 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
   // Modify the click handler for the company input container
   const handleCompanyContainerClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    
-    // Only show dropdown if no company is selected
-    if (!selectedCompanyId) {
+    if (!selectedCompanyId) { // Only open if no company is selected
       setShowCompanyDropdown(true);
     }
-    // If company is selected and user clicks the container, don't open dropdown
   };
 
-  // Update company selection function to properly close dropdown
-  const handleSelectCompany = (companyId: number) => {
-    setValue('companyId', companyId);
-    setShowCompanyDropdown(false);
-    // Set the company name in the search query field for display
-    const selectedCompany = companies.find(c => c.id === companyId);
-    if (selectedCompany) {
-      setCompanySearchQuery(selectedCompany.name);
-    } else {
-      setCompanySearchQuery('');
-    }
-  };
-
-  // Modify the company input field handling to be more robust
+  // Modify the company input field handling
   const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setCompanySearchQuery(value);
     
-    // If there's text, show dropdown for search results
     if (value.trim()) {
       setShowCompanyDropdown(true);
-      // If we had a company selected, clear it since user is searching again
       if (selectedCompanyId) {
-        // Use null instead of undefined as it's more appropriate for a DB ID field
-        setValue('companyId', null as unknown as number);
+        setValue('companyId', null as unknown as number); 
       }
     } else {
-      // If field is empty and no company is selected, keep dropdown closed
       setShowCompanyDropdown(false);
-      // If we had a company selected and cleared the field, clear the selection
       if (selectedCompanyId) {
-        // Use null instead of undefined as it's more appropriate for a DB ID field
         setValue('companyId', null as unknown as number);
       }
     }
   };
 
-  // Ensure dropdown state is consistent with company selection
-  useEffect(() => {
-    // If company is selected, ensure dropdown is closed
-    if (selectedCompanyId) {
-      setShowCompanyDropdown(false);
-      
-      // Update display name if not already set
-      if (!companySearchQuery) {
-        const selectedCompany = companies.find(c => c.id === Number(selectedCompanyId));
-        if (selectedCompany) {
-          setCompanySearchQuery(selectedCompany.name);
-        }
-      }
-    }
-  }, [selectedCompanyId, companies, companySearchQuery]);
-
-  // Effect to refetch companies after CompanyForm modal is closed
-  useEffect(() => {
-    // If the modal is not showing and we previously had it open, 
-    // we should refresh the companies list in case one was added
-    if (!showCompanyModal && companies.length > 0) {
-      const fetchCompanies = async () => {
-        try {
-          const { data: companiesData, error: companiesError } = await supabase
-            .from('companies')
-            .select('id, name, logo')
-            .order('name');
-
-          if (companiesError) throw companiesError;
-          
-          if (companiesData) {
-            setCompanies(companiesData);
-            
-            // After fetching companies, we need to also refilter them based on the current search query
-            if (companySearchQuery) {
-              setFilteredCompanies(
-                companiesData.filter(company => 
-                  company.name.toLowerCase().includes(companySearchQuery.toLowerCase())
-                )
-              );
-              
-              // Re-open the dropdown to show the user the filtered results or create option
-              setShowCompanyDropdown(true);
-            } else {
-              setFilteredCompanies(companiesData);
-            }
-            
-            // If there are new companies, select the newest one (last in the array)
-            const newCompanies = companiesData.filter(
-              comp => !companies.some(oldComp => oldComp.id === comp.id)
-            );
-            
-            if (newCompanies.length > 0) {
-              // Select the newly created company
-              setValue('companyId', newCompanies[0].id);
-            }
-          }
-        } catch (err) {
-          console.error('Error fetching companies:', err);
-        }
-      };
-
-      fetchCompanies();
-    }
-  }, [showCompanyModal, supabase, setValue, companies, companySearchQuery]);
-
-  // Update the company selection and search field logic
-  useEffect(() => {
-    // If a preselectedCompanyId is provided, use it and don't show dropdown
-    if (preselectedCompanyId) {
-      setValue('companyId', preselectedCompanyId);
-      setCompanySearchQuery(''); // Clear search if ID is set
-      setShowCompanyDropdown(false); // Ensure dropdown is closed when company is preselected
-    } else if (initialData?.companyName) {
-      // If we have a suggested company name but no ID, show it in the search field
-      setCompanySearchQuery(initialData.companyName);
-    }
-  }, [preselectedCompanyId, initialData, setValue]);
+  // Handle company selection from dropdown
+  const handleSelectCompany = (companyId: number) => {
+    setValue('companyId', companyId);
+    // The consistency useEffect will handle setting companySearchQuery and closing dropdown
+  };
 
   // Handle form submit
   const onSubmit = async (data: ApplicationFormData) => {
