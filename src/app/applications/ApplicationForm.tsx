@@ -228,12 +228,69 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
     return company ? company.name : '';
   };
 
-  // Handle company selection from dropdown
+  // Modify the click handler for the company input container
+  const handleCompanyContainerClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // Only show dropdown if no company is selected
+    if (!selectedCompanyId) {
+      setShowCompanyDropdown(true);
+    }
+    // If company is selected and user clicks the container, don't open dropdown
+  };
+
+  // Update company selection function to properly close dropdown
   const handleSelectCompany = (companyId: number) => {
     setValue('companyId', companyId);
     setShowCompanyDropdown(false);
-    setCompanySearchQuery('');
+    // Set the company name in the search query field for display
+    const selectedCompany = companies.find(c => c.id === companyId);
+    if (selectedCompany) {
+      setCompanySearchQuery(selectedCompany.name);
+    } else {
+      setCompanySearchQuery('');
+    }
   };
+
+  // Modify the company input field handling to be more robust
+  const handleCompanyInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCompanySearchQuery(value);
+    
+    // If there's text, show dropdown for search results
+    if (value.trim()) {
+      setShowCompanyDropdown(true);
+      // If we had a company selected, clear it since user is searching again
+      if (selectedCompanyId) {
+        // Use null instead of undefined as it's more appropriate for a DB ID field
+        setValue('companyId', null as unknown as number);
+      }
+    } else {
+      // If field is empty and no company is selected, keep dropdown closed
+      setShowCompanyDropdown(false);
+      // If we had a company selected and cleared the field, clear the selection
+      if (selectedCompanyId) {
+        // Use null instead of undefined as it's more appropriate for a DB ID field
+        setValue('companyId', null as unknown as number);
+      }
+    }
+  };
+
+  // Ensure dropdown state is consistent with company selection
+  useEffect(() => {
+    // If company is selected, ensure dropdown is closed
+    if (selectedCompanyId) {
+      setShowCompanyDropdown(false);
+      
+      // Update display name if not already set
+      if (!companySearchQuery) {
+        const selectedCompany = companies.find(c => c.id === Number(selectedCompanyId));
+        if (selectedCompany) {
+          setCompanySearchQuery(selectedCompany.name);
+        }
+      }
+    }
+  }, [selectedCompanyId, companies, companySearchQuery]);
 
   // Effect to refetch companies after CompanyForm modal is closed
   useEffect(() => {
@@ -284,6 +341,19 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
       fetchCompanies();
     }
   }, [showCompanyModal, supabase, setValue, companies, companySearchQuery]);
+
+  // Update the company selection and search field logic
+  useEffect(() => {
+    // If a preselectedCompanyId is provided, use it and don't show dropdown
+    if (preselectedCompanyId) {
+      setValue('companyId', preselectedCompanyId);
+      setCompanySearchQuery(''); // Clear search if ID is set
+      setShowCompanyDropdown(false); // Ensure dropdown is closed when company is preselected
+    } else if (initialData?.companyName) {
+      // If we have a suggested company name but no ID, show it in the search field
+      setCompanySearchQuery(initialData.companyName);
+    }
+  }, [preselectedCompanyId, initialData, setValue]);
 
   // Handle form submit
   const onSubmit = async (data: ApplicationFormData) => {
@@ -383,7 +453,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
                 className={`w-full flex items-center rounded-md border ${
                   errors.companyId ? 'border-red-300 focus-within:border-red-500 focus-within:ring-red-500' : 'border-gray-300 focus-within:border-purple-500 focus-within:ring-purple-500'
                 } shadow-sm focus-within:ring-1 focus-within:outline-none px-3 py-2 cursor-pointer`}
-                onClick={() => setShowCompanyDropdown(true)}
+                onClick={handleCompanyContainerClick}
               >
                 {selectedCompanyId ? (
                   <div className="flex items-center justify-between w-full">
@@ -393,7 +463,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
                       className="text-gray-400 hover:text-gray-500"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setValue('companyId', 0);
+                        setValue('companyId', null as unknown as number);
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -407,10 +477,7 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
                       placeholder="Search companies..."
                       className="w-full border-0 focus:ring-0 p-0"
                       value={companySearchQuery}
-                      onChange={(e) => {
-                        setCompanySearchQuery(e.target.value);
-                        setShowCompanyDropdown(true);
-                      }}
+                      onChange={handleCompanyInputChange}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>

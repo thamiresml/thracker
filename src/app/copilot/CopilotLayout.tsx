@@ -190,7 +190,7 @@ export default function CopilotLayout({ applications }: CopilotLayoutProps) {
     } finally {
       setLoadingState(prev => ({ ...prev, initialDocs: false }));
     }
-  }, [userId]); 
+  }, [userId, supabase.storage]);
 
   // Load initial base documents when userId changes
   useEffect(() => {

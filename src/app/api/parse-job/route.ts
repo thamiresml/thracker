@@ -124,6 +124,316 @@ function normalizeJobTitle(title: string): string {
   return bestMatch || title;
 }
 
+// Helper function to extract salary from text content
+function extractSalaryFromText(text: string): string {
+  if (!text) return '';
+  
+  // Patterns for salary information with higher specificity
+  const salaryPatterns = [
+    /\$[\d,]+ *- *\$[\d,]+( per year| annually)?/gi,
+    /\$[\d,]+ *to *\$[\d,]+( per year| annually)?/gi,
+    /\$[\d,]+ *\+ *( per year| annually)?/gi,
+    /salary:? *\$[\d,]+ *- *\$[\d,]+/gi,
+    /compensation:? *\$[\d,]+ *- *\$[\d,]+/gi,
+    /salary range:? *\$[\d,]+ *- *\$[\d,]+/gi,
+    /annual salary range:? *\$[\d,]+ *- *\$[\d,]+/gi,
+    /range:? *\$[\d,]+ *- *\$[\d,]+/gi,
+    /total compensation:? *\$[\d,]+ *- *\$[\d,]+/gi
+  ];
+
+  for (const pattern of salaryPatterns) {
+    const matches = text.match(pattern);
+    if (matches && matches.length > 0) {
+      return matches[0].replace(/( per year| annually)/gi, '').trim();
+    }
+  }
+  
+  return '';
+}
+
+// Helper function to extract location from text content
+function extractLocationFromText(text: string): string {
+  if (!text) return '';
+  
+  // Check for common location indicators
+  const locationPatterns = [
+    /location:? *([\w\s,]+?)(?:\.|,|\n|$)/i,
+    /based in:? *([\w\s,]+?)(?:\.|,|\n|$)/i,
+    /position is (?:located|based) in:? *([\w\s,]+?)(?:\.|,|\n|$)/i,
+    /this role is based in:? *([\w\s,]+?)(?:\.|,|\n|$)/i,
+    /office location:? *([\w\s,]+?)(?:\.|,|\n|$)/i,
+    /work location:? *([\w\s,]+?)(?:\.|,|\n|$)/i,
+    /working location:? *([\w\s,]+?)(?:\.|,|\n|$)/i
+  ];
+  
+  for (const pattern of locationPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  
+  return '';
+}
+
+// Helper function to validate a location against our list of known locations
+function validateLocation(location: string): string {
+  if (!location) return 'Remote';
+  
+  // Clean and normalize the location text
+  const cleanedLocation = location.trim()
+    .replace(/^\s*in\s+/, '') // Remove leading "in" if present
+    .replace(/^\s*at\s+/, '') // Remove leading "at" if present
+    .replace(/[,.;:]$/, '')   // Remove trailing punctuation
+    .trim();
+  
+  // Common words that shouldn't be treated as locations
+  const invalidLocationTerms = [
+    'assistance', 'new', 'emp', 'help', 'support', 'the', 'and', 'position', 'role',
+    'job', 'benefits', 'salary', 'compensation', 'apply', 'opportunity', 'experience'
+  ];
+  
+  // Check if the location contains any invalid terms
+  for (const term of invalidLocationTerms) {
+    if (cleanedLocation.toLowerCase().includes(term.toLowerCase())) {
+      return 'Remote'; // Default to Remote if the location contains invalid terms
+    }
+  }
+  
+  // Check if the location matches known city patterns
+  for (const city of americanCities) {
+    if (
+      cleanedLocation.toLowerCase() === city.toLowerCase() ||
+      cleanedLocation.toLowerCase().includes(city.toLowerCase())
+    ) {
+      return city; // Return the standardized city name
+    }
+  }
+  
+  // If it includes remote or hybrid indicators, return those
+  if (/remote|work from home|wfh|virtual/i.test(cleanedLocation)) {
+    return 'Remote';
+  }
+  
+  if (/hybrid|flexible|partial remote/i.test(cleanedLocation)) {
+    return 'Hybrid';
+  }
+  
+  // If it's a short string (2-20 chars) without numbers, it might be a valid location
+  if (cleanedLocation.length >= 2 && 
+      cleanedLocation.length <= 20 && 
+      !/\d/.test(cleanedLocation)) {
+    return cleanedLocation;
+  }
+  
+  // Default to Remote if we can't validate the location
+  return 'Remote';
+}
+
+// Enhanced helper function to detect the real company from various job boards
+function detectCompanyFromJobBoard(url: string, $: cheerio.CheerioAPI): string | null {
+  const urlObj = new URL(url);
+  const hostname = urlObj.hostname;
+  
+  // For Greenhouse job board
+  if (hostname.includes('greenhouse.io')) {
+    // Try several selectors to find the company name in Greenhouse
+    const companySelectors = [
+      '.company-name',
+      'a[data-source="company-name"]',
+      'meta[property="og:title"]', // Often has "Company - Position" format
+      'title', // Often has "Position at Company" format
+      '.app-title', // Sometimes contains company name
+      '.company' // Another common class for company
+    ];
+    
+    for (const selector of companySelectors) {
+      let companyText = '';
+      if (selector === 'meta[property="og:title"]') {
+        companyText = $(selector).attr('content') || '';
+        // Extract company name from "Company - Position" format
+        const parts = companyText.split(' - ');
+        if (parts.length > 1) {
+          return parts[0].trim();
+        }
+      } else if (selector === 'title') {
+        companyText = $(selector).text();
+        // Extract company name from "Position at Company" format
+        const match = companyText.match(/ at (.*?)( \||\(|\)|$)/i);
+        if (match && match[1]) {
+          return match[1].trim();
+        }
+      } else {
+        companyText = $(selector).text().trim();
+        if (companyText && companyText !== 'Greenhouse') {
+          return companyText;
+        }
+      }
+    }
+    
+    // Try to extract from URL path
+    try {
+      const urlPath = urlObj.pathname;
+      const pathParts = urlPath.split('/').filter(Boolean);
+      
+      // In Greenhouse URLs, the first part after "job-boards.greenhouse.io" is often the company name
+      // Format: /companyname/job/position-slug or /companyname/jobs/1234
+      if (pathParts.length > 0) {
+        // Skip "jobs" if it's the first part
+        const companySlug = pathParts[0] === 'jobs' && pathParts.length > 1 ? pathParts[1] : pathParts[0];
+        
+        // Check if this is a company subdomain in the hostname
+        if (urlObj.hostname.includes('.greenhouse.io') && !urlObj.hostname.startsWith('job-boards')) {
+          const subdomain = urlObj.hostname.split('.')[0];
+          if (subdomain && subdomain !== 'www' && subdomain !== 'boards') {
+            return subdomain.split('-').map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+          }
+        }
+        
+        // Convert slug to proper company name if not found in subdomain
+        const companyName = companySlug.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+        
+        // Don't return common words that aren't company names
+        if (companyName && !['Jobs', 'Job', 'Board', 'Boards', 'Greenhouse'].includes(companyName)) {
+          return companyName;
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing URL for company name:', error);
+    }
+  }
+  
+  // For Lever job board
+  if (hostname.includes('lever.co')) {
+    // Try several selectors for company name in Lever
+    const companySelectors = [
+      '.main-header-logo img[alt]', // Logo alt text often has company name
+      '.company-name',
+      'meta[property="og:title"]'
+    ];
+    
+    for (const selector of companySelectors) {
+      if (selector.includes('img[alt]')) {
+        const alt = $(selector).attr('alt');
+        if (alt && alt !== 'Lever') {
+          return alt.trim();
+        }
+      } else if (selector.startsWith('meta')) {
+        const content = $(selector).attr('content') || '';
+        // Lever meta titles are often "Position - Company"
+        const parts = content.split(' - ');
+        if (parts.length > 1) {
+          return parts[1].trim(); // Company is usually the second part
+        }
+      } else {
+        const text = $(selector).text().trim();
+        if (text && text !== 'Lever') {
+          return text;
+        }
+      }
+    }
+    
+    // Check page title
+    const title = $('title').text();
+    const titleMatch = title.match(/.*? at (.*?)( \||\(|\)|$)/i);
+    if (titleMatch && titleMatch[1]) {
+      return titleMatch[1].trim();
+    }
+    
+    // Try to extract from URL (lever URLs typically have company as subdomain)
+    const subdomain = hostname.split('.')[0];
+    if (subdomain && subdomain !== 'www' && subdomain !== 'jobs') {
+      return subdomain.split('-').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+    }
+  }
+  
+  // For Workday
+  if (hostname.includes('workday') || hostname.includes('myworkdayjobs.com')) {
+    // Workday format is usually company.myworkdayjobs.com
+    const parts = hostname.split('.');
+    if (parts.length > 0) {
+      const companySlug = parts[0];
+      if (companySlug !== 'www' && companySlug !== 'workday') {
+        return companySlug.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+      }
+    }
+    
+    // Try to find in the page content
+    const companySelectors = [
+      '.WFMA .gwt-Label', // Often contains company name
+      'img.logo[alt]',
+      'meta[property="og:title"]'
+    ];
+    
+    for (const selector of companySelectors) {
+      if (selector.includes('[alt]')) {
+        const alt = $(selector).attr('alt');
+        if (alt) return alt.trim();
+      } else if (selector.startsWith('meta')) {
+        const content = $(selector).attr('content') || '';
+        // Format could be "Job | Company"
+        const parts = content.split(' | ');
+        if (parts.length > 1) return parts[1].trim();
+      } else {
+        const text = $(selector).text().trim();
+        if (text) return text;
+      }
+    }
+  }
+  
+  // For general job boards, try to extract from the URL or page title
+  // Common job boards: LinkedIn, Indeed, ZipRecruiter, etc.
+  if (hostname.includes('linkedin.com') || 
+      hostname.includes('indeed.com') || 
+      hostname.includes('ziprecruiter.com') || 
+      hostname.includes('monster.com')) {
+    
+    // Look for company in meta tags
+    const companyMeta = $('meta[property="og:site_name"]').attr('content') ||
+                       $('meta[name="company"]').attr('content') ||
+                       $('meta[name="organization"]').attr('content');
+                       
+    if (companyMeta) return companyMeta;
+    
+    // Try page heading/title that might contain the company name
+    const companySelectors = [
+      '.company-name',
+      '.job-company-name',
+      '.hiring-org',
+      '[data-testid="company-name"]',
+      'a[data-test="company-name"]'
+    ];
+    
+    for (const selector of companySelectors) {
+      const text = $(selector).text().trim();
+      if (text) return text;
+    }
+    
+    // For LinkedIn, company is often in the URL
+    if (hostname.includes('linkedin.com')) {
+      const path = urlObj.pathname;
+      if (path.includes('/company/')) {
+        const companySlug = path.split('/company/')[1]?.split('/')[0];
+        if (companySlug) {
+          return companySlug.split('-').map(word => 
+            word.charAt(0).toUpperCase() + word.slice(1)
+          ).join(' ');
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
 async function fetchAndParse(url: string) {
   try {
     // Enhanced headers to mimic a real browser
@@ -158,13 +468,22 @@ async function fetchAndParse(url: string) {
     const jobData: JobData = {
       company: 'Unknown Company',
       position: 'Unknown Position',
-      location: '',  // Don't default to Remote until we've tried all options
+      location: '',
       description: '',
       salary: '',
       industry: '',
       companySize: ''
     };
 
+    // Check if this is a job board and try to detect the real company
+    const realCompany = detectCompanyFromJobBoard(url, $);
+    if (realCompany) {
+      jobData.company = realCompany;
+    }
+
+    // Get the full text content for deeper analysis
+    const fullPageText = $('body').text();
+    
     // Special handling for known job boards
     if (url.includes('careers.mastercard.com')) {
       jobData.company = 'Mastercard';
@@ -242,37 +561,45 @@ async function fetchAndParse(url: string) {
       
       jobData.position = foundPosition || 'Unknown Position';
 
-      // Look for location in multiple places
+      // Improved location extraction for OpenAI
+      // First try specific selectors
       const locationSelectors = [
         '.location',
         '.job-location',
         '[data-field="location"]',
         'div:contains("Location:")',
         'span:contains("Location:")',
-        'div:contains("This role is based in")'
+        'div:contains("This role is based in")',
+        'p:contains("Location:")',
+        'li:contains("Location:")'
       ];
 
+      let location = '';
       for (const selector of locationSelectors) {
-        let location = '';
-        if (selector.includes('This role is based in')) {
-          const text = $(selector).text();
-          const match = text.match(/This role is based in ([^,.]+)/);
-          if (match) {
-            location = match[1].trim();
-          }
-        } else if (selector.includes('Location:')) {
-          location = $(selector).next().text().trim() || 
-                    $(selector).parent().text().replace('Location:', '').trim();
+        if (selector.includes(':contains')) {
+          const elements = $(selector);
+          elements.each((_, el) => {
+            const text = $(el).text();
+            // More specific pattern matching to avoid capturing wrong text
+            const match = text.match(/Location:?\s*([\w\s,]+?)(?:\.|,|\n|$)/i) || 
+                         text.match(/This role is based in\s*([\w\s,]+?)(?:\.|,|\n|$)/i) ||
+                         text.match(/Position located in\s*([\w\s,]+?)(?:\.|,|\n|$)/i);
+            if (match && match[1]) {
+              location = match[1].trim();
+              return false; // Break the loop
+            }
+          });
         } else {
-          location = $(selector).first().text().trim();
+          const elementText = $(selector).first().text().trim();
+          // Verify this looks like a location before using it
+          if (elementText && elementText.length < 30 && !elementText.includes('assistance')) {
+            location = elementText;
+          }
         }
-        if (location) {
-          jobData.location = location;
-          break;
-        }
+        if (location) break;
       }
-
-      // Try multiple description selectors
+      
+      // Get full job description for deeper analysis
       const descriptionSelectors = [
         'div:contains("About the Team")',
         'div:contains("About the Role")',
@@ -280,7 +607,9 @@ async function fetchAndParse(url: string) {
         '.job-description',
         '#job-description',
         '[data-field="description"]',
-        '.description'
+        '.description',
+        'main',
+        'article'
       ];
 
       let description = '';
@@ -288,16 +617,100 @@ async function fetchAndParse(url: string) {
         const section = $(selector);
         if (section.length) {
           if (selector.includes('About the')) {
-            // Get the section and next sections
-            description = section.text() + '\n\n' + section.next().text();
+            // Get the section and next sections to capture the full description
+            description = section.text() + '\n\n' + section.next().text() + 
+                         '\n\n' + section.next().next().text() + 
+                         '\n\n' + section.next().next().next().text();
           } else {
             description = section.text();
           }
           if (description) {
-            jobData.description = description.trim();
             break;
           }
         }
+      }
+      
+      // Store the description for other extraction
+      jobData.description = description.trim();
+      
+      // If no location found from selectors, try to extract from the description
+      if (!location) {
+        // Look more specifically for OpenAI location patterns
+        const locationPatterns = [
+          /\*Open to hiring remote across ([\w\s,]+?) —/i,
+          /\*Open to ([\w\s,]+?) —/i,
+          /location:?\s*([\w\s,]+?)(?:\.|,|\n|$)/i,
+          /based in\s*([\w\s,]+?)(?:\.|,|\n|$)/i,
+          /position is (?:located|based) in\s*([\w\s,]+?)(?:\.|,|\n|$)/i,
+          /this role is based in\s*([\w\s,]+?)(?:\.|,|\n|$)/i,
+          /this is a\s*([\w\s,]+?)-based role/i,
+          /our office in\s*([\w\s,]+?)(?:\.|,|\n|$)/i,
+          /offices? in ([\w\s,]+?)(?:\.|,|\n|$)/i
+        ];
+        
+        for (const pattern of locationPatterns) {
+          const match = description.match(pattern);
+          if (match && match[1]) {
+            const potentialLocation = match[1].trim();
+            // Only use if it looks like a valid location
+            if (potentialLocation.length < 30 && !potentialLocation.toLowerCase().includes('assistance')) {
+              location = potentialLocation;
+              break;
+            }
+          }
+        }
+        
+        // OpenAI jobs are often based in San Francisco if nothing else specified
+        if (!location && description.includes('San Francisco')) {
+          location = 'San Francisco, CA';
+        }
+      }
+      
+      // Validate the extracted location against our list
+      const validatedLocation = validateLocation(location);
+      jobData.location = validatedLocation;
+
+      // Enhanced salary extraction for OpenAI jobs
+      // OpenAI usually puts salary info at the end of job descriptions
+      const salaryPatterns = [
+        /compensation.*?\$([\d,]+).*?\$([\d,]+)/i,
+        /salary.*?\$([\d,]+).*?\$([\d,]+)/i,
+        /range.*?\$([\d,]+).*?\$([\d,]+)/i,
+        /\$([\d,]+).*?to.*?\$([\d,]+)/i,
+        /\$([\d,]+).*?-.*?\$([\d,]+)/i
+      ];
+      
+      let salary = '';
+      
+      // If we have a description, search through it for salary information
+      if (description) {
+        // First try the last 500 characters - OpenAI often puts salary at the end
+        const endOfDescription = description.slice(-500);
+        
+        for (const pattern of salaryPatterns) {
+          // First look at the end of the description
+          const endMatch = endOfDescription.match(pattern);
+          if (endMatch) {
+            if (endMatch[1] && endMatch[2]) {
+              salary = `$${endMatch[1]} - $${endMatch[2]}`;
+              break;
+            }
+          }
+          
+          // If not found at the end, check the full description
+          const fullMatch = description.match(pattern);
+          if (fullMatch) {
+            if (fullMatch[1] && fullMatch[2]) {
+              salary = `$${fullMatch[1]} - $${fullMatch[2]}`;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Use the extracted salary if found
+      if (salary) {
+        jobData.salary = salary;
       }
 
     } else if (url.includes('adobe.com') || url.includes('careers.adobe.com')) {
@@ -384,6 +797,365 @@ async function fetchAndParse(url: string) {
         .replace(/\n\s*\n/g, '\n\n')
         .trim();
 
+    } else if (url.includes('greenhouse.io') || url.includes('job-boards.greenhouse.io')) {
+      // First extract real company name
+      const realCompany = detectCompanyFromJobBoard(url, $);
+      if (realCompany) {
+        jobData.company = realCompany;
+      }
+      
+      // Get the full job title from multiple possible sources
+      const titleSelectors = [
+        'h1.app-title',
+        'h1',
+        '.app-title',
+        'meta[property="og:title"]',
+        'title' // Fallback to page title
+      ];
+      
+      let fullTitle = '';
+      
+      // First try to get directly from the h1 tag (most reliable)
+      for (const selector of titleSelectors) {
+        if (selector.startsWith('meta')) {
+          const content = $(selector).attr('content') || '';
+          // Meta title usually has "Position - Company" format
+          const parts = content.split(' - ');
+          if (parts.length > 0) {
+            fullTitle = parts[0].trim();
+            break;
+          }
+        } else if (selector === 'title') {
+          const pageTitle = $(selector).text().trim();
+          // Title can be "Position at Company | Greenhouse" or similar
+          const parts = pageTitle.split(' at ');
+          if (parts.length > 0) {
+            fullTitle = parts[0].trim();
+            break;
+          }
+        } else {
+          fullTitle = $(selector).first().text().trim();
+          if (fullTitle) break;
+        }
+      }
+      
+      // If we have a title, clean it up
+      if (fullTitle) {
+        // Remove "Greenhouse Job Board" text if present
+        fullTitle = fullTitle.replace(/Greenhouse Job Board/gi, '').trim();
+        
+        // Remove "at Company" suffix if present
+        const atCompanyMatch = fullTitle.match(/^(.*?)\s+at\s+.*$/i);
+        if (atCompanyMatch && atCompanyMatch[1]) {
+          fullTitle = atCompanyMatch[1].trim();
+        }
+        
+        jobData.position = fullTitle;
+      }
+      
+      // If still no title, try to extract from URL
+      if (!jobData.position || jobData.position === 'Unknown Position') {
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split('/').filter(Boolean);
+          
+          // In URLs like /company/job/job-title-slug or /company/jobs/1234
+          // Look for position in the job-title-slug
+          let positionSlug = '';
+          
+          for (let i = 0; i < pathParts.length; i++) {
+            if ((pathParts[i] === 'job' || pathParts[i] === 'jobs') && i + 1 < pathParts.length) {
+              positionSlug = pathParts[i + 1];
+              break;
+            }
+          }
+          
+          if (positionSlug && !(/^\d+$/.test(positionSlug))) { // Ensure it's not just a numeric ID
+            const position = positionSlug.split('-').map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+            
+            jobData.position = position;
+          }
+        } catch (error) {
+          console.error('Error extracting position from URL:', error);
+        }
+      }
+      
+      // Get location - Greenhouse usually shows this clearly
+      const locationSelectors = [
+        '.location',
+        '.js-location',
+        'div.metadata div:contains("Location")',
+        'meta[property="og:location"]'
+      ];
+      
+      let location = '';
+      for (const selector of locationSelectors) {
+        if (selector.includes(':contains')) {
+          $(selector).each((_, el) => {
+            const text = $(el).text();
+            if (text.includes('Location')) {
+              location = text.replace('Location', '').trim();
+              return false; // Break the loop
+            }
+          });
+        } else if (selector.startsWith('meta')) {
+          location = $(selector).attr('content') || '';
+        } else {
+          location = $(selector).first().text().trim();
+        }
+        if (location) break;
+      }
+      
+      jobData.location = location || 'Remote';
+      
+      // Enhanced job description extraction for Greenhouse
+      const descriptionSelectors = [
+        '.content', 
+        '#content',
+        '#app .app-body',  // Main container for Greenhouse job boards
+        '.description',
+        '#description',
+        '.job-description',
+        // Content sections commonly used in Greenhouse job listings
+        'section:contains("About the")',
+        'section:contains("What you")',
+        'section:contains("Responsibilities")',
+        'section:contains("Requirements")',
+        'section:contains("Qualifications")',
+        // For Runway specifically
+        'div[role="main"]',
+        'article'
+      ];
+      
+      let description = '';
+      
+      // First try to get the main containers with descriptions
+      for (const selector of descriptionSelectors) {
+        let content: string | undefined;
+        if (selector.includes(':contains')) {
+          // Handle sections that contain specific text
+          $(selector).each((_, el) => {
+            const sectionText = $(el).text().trim();
+            if (sectionText) {
+              content = (content || '') + sectionText + '\n\n';
+            }
+          });
+        } else {
+          content = $(selector).text().trim();
+        }
+        
+        if (content) {
+          description = content;
+          break;
+        }
+      }
+      
+      // If still no description, try to get all main content
+      if (!description) {
+        // For Greenhouse boards, the job description is often in the main content area
+        // Try to capture everything in the main content area
+        const mainContent = $('div[role="main"]').text() || 
+                          $('main').text() || 
+                          $('#main').text();
+        
+        if (mainContent) {
+          // Clean up the main content to extract just the job description
+          description = mainContent
+            .replace(/apply|submit application|back to jobs/gi, '')
+            .trim();
+        }
+      }
+      
+      // For Runway specifically, try an alternate approach if still no description
+      if (!description || description.length < 100) {
+        // Get all paragraphs and headings from the main content area
+        const contentSections: string[] = [];
+        $('div[role="main"] p, div[role="main"] h1, div[role="main"] h2, div[role="main"] h3, div[role="main"] h4, div[role="main"] ul').each((_, el) => {
+          const text = $(el).text().trim();
+          if (text && !text.includes('Apply') && !text.includes('Submit') && !text.includes('Back to jobs')) {
+            contentSections.push(text);
+          }
+        });
+        
+        if (contentSections.length > 0) {
+          description = contentSections.join('\n\n');
+        }
+      }
+      
+      jobData.description = description;
+      
+      // Try to extract salary information from the description
+      const salarySection = description.match(/salary.*?\$([\d,]+).*?\$([\d,]+)/i) ||
+                           description.match(/compensation.*?\$([\d,]+).*?\$([\d,]+)/i) ||
+                           description.match(/range.*?\$([\d,]+).*?\$([\d,]+)/i);
+                           
+      if (salarySection && salarySection[1] && salarySection[2]) {
+        jobData.salary = `$${salarySection[1]} - $${salarySection[2]}`;
+      } else {
+        // Fallback to general salary extraction
+        const salary = extractSalaryFromText(fullPageText);
+        if (salary) {
+          jobData.salary = salary;
+        }
+      }
+    } else if (url.includes('lever.co')) {
+      // Set company from detection function
+      const realCompany = detectCompanyFromJobBoard(url, $);
+      if (realCompany) {
+        jobData.company = realCompany;
+      }
+      
+      // Get position title
+      const positionSelectors = [
+        'h2[data-qa="posting-name"]',
+        '.posting-headline h2',
+        'h2.posting-headline',
+        'meta[property="og:title"]'
+      ];
+      
+      let position = '';
+      for (const selector of positionSelectors) {
+        if (selector.startsWith('meta')) {
+          const content = $(selector).attr('content') || '';
+          const parts = content.split(' - ');
+          if (parts.length > 0) {
+            position = parts[0].trim();
+            break;
+          }
+        } else {
+          position = $(selector).text().trim();
+          if (position) break;
+        }
+      }
+      
+      jobData.position = position || 'Unknown Position';
+      
+      // Get location
+      const locationSelectors = [
+        '.location',
+        '.posting-categories .sort-by-time',
+        'div.posting-categories .sort-by-location',
+        '.job-posting__metadata-item:contains("Location")'
+      ];
+      
+      let location = '';
+      for (const selector of locationSelectors) {
+        if (selector.includes(':contains')) {
+          $(selector).each((_, el) => {
+            const text = $(el).text();
+            if (text.includes('Location')) {
+              location = text.replace('Location', '').trim();
+              return false; // Break the loop
+            }
+          });
+        } else {
+          location = $(selector).text().trim();
+        }
+        if (location) break;
+      }
+      
+      jobData.location = location || 'Remote';
+      
+      // Get job description
+      const descriptionSelectors = [
+        '.section-wrapper.content',
+        '.posting-page-content',
+        '.posting-description',
+        'div[data-qa="posting-description"]'
+      ];
+      
+      let description = '';
+      for (const selector of descriptionSelectors) {
+        description = $(selector).text().trim();
+        if (description) break;
+      }
+      
+      jobData.description = description;
+      
+      // Try to extract salary
+      const salary = extractSalaryFromText(description || fullPageText);
+      if (salary) {
+        jobData.salary = salary;
+      }
+    } else if (url.includes('workday') || url.includes('myworkdayjobs.com')) {
+      // Set company from detection function
+      const realCompany = detectCompanyFromJobBoard(url, $);
+      if (realCompany) {
+        jobData.company = realCompany;
+      }
+      
+      // Get position title - Workday usually has this prominently displayed
+      const positionSelectors = [
+        'h1.job-title',
+        'h1#job-title',
+        'h2.job-title',
+        'title'
+      ];
+      
+      let position = '';
+      for (const selector of positionSelectors) {
+        if (selector === 'title') {
+          const pageTitle = $(selector).text();
+          // Workday titles are often "Job Title | Company"
+          const parts = pageTitle.split(' | ');
+          if (parts.length > 0) {
+            position = parts[0].trim();
+          }
+        } else {
+          position = $(selector).text().trim();
+        }
+        if (position) break;
+      }
+      
+      jobData.position = position || 'Unknown Position';
+      
+      // Get location - Workday usually shows this near the title
+      const locationSelectors = [
+        '.location-data',
+        '.location',
+        '.gwt-Label:contains("Location")'
+      ];
+      
+      let location = '';
+      for (const selector of locationSelectors) {
+        if (selector.includes(':contains')) {
+          $(selector).each((_, el) => {
+            const text = $(el).text();
+            if (text.includes('Location:')) {
+              location = text.replace('Location:', '').trim();
+              return false;
+            }
+          });
+        } else {
+          location = $(selector).text().trim();
+        }
+        if (location) break;
+      }
+      
+      jobData.location = location || 'Remote';
+      
+      // Get description
+      const descriptionSelectors = [
+        '.job-description',
+        '#job-description',
+        '.job_description'
+      ];
+      
+      let description = '';
+      for (const selector of descriptionSelectors) {
+        description = $(selector).text().trim();
+        if (description) break;
+      }
+      
+      jobData.description = description;
+      
+      // Try to extract salary
+      const salary = extractSalaryFromText(description || fullPageText);
+      if (salary) {
+        jobData.salary = salary;
+      }
     } else {
       // Generic parsing for other sites
       // Try to get company name from meta tags or OpenGraph data
@@ -431,37 +1203,37 @@ async function fetchAndParse(url: string) {
         }
       }
 
-      // Try multiple selectors for location, including schema.org data
-      const locationSelectors = [
-        '.location',
+      // Try to find location information
+      const genericLocationSelectors = [
         '.job-location',
-        '[data-field="location"]',
-        '.posting-categories .sort-by-location',
-        'div:contains("Location:")',
-        'span:contains("Location:")',
-        '[aria-label="Job location"]',
-        'div:contains("Job location")',
-        'meta[name="job-location"]'
+        '.location',
+        '[itemprop="jobLocation"]',
+        '[data-testid="job-location"]',
+        'span:contains("Location")',
+        'div:contains("Location")'
       ];
       
-      let location = schemaData?.jobLocation?.address?.addressLocality || 
-                    schemaData?.jobLocation?.address?.addressRegion ||
-                    schemaData?.jobLocation;
-      
-      if (!location) {
-        for (const selector of locationSelectors) {
-          if (selector.includes('Location:')) {
-            location = $(selector).next().text().trim() || 
-                      $(selector).parent().text().replace('Location:', '').trim();
-          } else if (selector.startsWith('meta')) {
-            location = $(selector).attr('content');
-          } else {
-            location = $(selector).first().text().trim();
+      let genericLocation = '';
+      // Process location selectors
+      for (const selector of genericLocationSelectors) {
+        if (selector.includes('Location:')) {
+          genericLocation = $(selector).next().text().trim() || 
+                            $(selector).parent().text().replace('Location:', '').trim();
+        } else if (selector.startsWith('meta')) {
+          const content = $(selector).attr('content');
+          if (content) {
+            genericLocation = content;
           }
-          if (location) break;
+        } else {
+          genericLocation = $(selector).first().text().trim();
         }
+        if (genericLocation) break;
       }
-
+      
+      // Extract location from text if not found via selectors
+      const extractedLocation = extractLocationFromText(fullPageText);
+      genericLocation = genericLocation || extractedLocation || 'Remote';
+      
       // Try multiple selectors for description, including schema.org data
       const descriptionSelectors = [
         '.job-description',
@@ -474,40 +1246,25 @@ async function fetchAndParse(url: string) {
         'article'
       ];
       
-      let description = schemaData?.description || '';
-      if (!description) {
+      let genericDescription = schemaData?.description || '';
+      if (!genericDescription) {
         for (const selector of descriptionSelectors) {
           const element = $(selector).first();
           if (element.length) {
             // Remove any script tags or hidden elements
             element.find('script, style, .hidden, [style*="display: none"]').remove();
-            description = element.text().trim();
-            if (description) break;
+            genericDescription = element.text().trim();
+            if (genericDescription) break;
           }
         }
       }
-
-      // Try to find salary information from schema.org data or page content
-      let salary = schemaData?.baseSalary?.value || 
-                  schemaData?.estimatedSalary?.value || '';
       
-      if (!salary) {
-        const pageText = $('body').text();
-        const salaryPatterns = [
-          /\$[\d,]+ *- *\$[\d,]+/i,
-          /\$[\d,]+ *per *year/i,
-          /\$[\d,]+ *\+ */i,
-          /salary range:? *\$[\d,]+ *- *\$[\d,]+/i,
-          /compensation:? *\$[\d,]+ *- *\$[\d,]+/i
-        ];
-
-        for (const pattern of salaryPatterns) {
-          const match = pageText.match(pattern);
-          if (match) {
-            salary = match[0];
-            break;
-          }
-        }
+      // Try to find salary information from schema.org data or page content
+      let genericSalary = schemaData?.baseSalary?.value || 
+                        schemaData?.estimatedSalary?.value || '';
+      
+      if (!genericSalary) {
+        genericSalary = extractSalaryFromText(fullPageText);
       }
 
       // Parse URL for company name fallback
@@ -519,9 +1276,9 @@ async function fetchAndParse(url: string) {
       // Set the parsed values with improved fallbacks
       jobData.company = metaCompany || companyFromUrl || 'Unknown Company';
       jobData.position = title || 'Unknown Position';
-      jobData.location = location || 'Remote';
-      jobData.description = description || '';
-      jobData.salary = salary || '';
+      jobData.location = genericLocation;
+      jobData.description = genericDescription || '';
+      jobData.salary = genericSalary || '';
 
       // Try to extract industry and company size from page content
       const pageText = $('body').text();
