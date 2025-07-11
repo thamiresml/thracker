@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Briefcase, Star, Users, LogOut, CheckSquare, UserCircle, Link as LinkIcon, Bot } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Star, Users, LogOut, CheckSquare, Link as LinkIcon } from 'lucide-react';
 
 // Define props including the modal opener function
 interface SidebarProps {
@@ -25,6 +25,7 @@ export default function Sidebar({ openAddJobUrlModal }: SidebarProps) {
       </div>
       
       {/* Profile section moved to top */}
+      {/*
       <div className="px-3 mb-2">
         <Link 
           href="/profile"
@@ -38,11 +39,14 @@ export default function Sidebar({ openAddJobUrlModal }: SidebarProps) {
           <span>Profile</span>
         </Link>
       </div>
+      */}
       
       {/* Divider after Profile */}
+      {/*
       <div className="px-3 mb-4">
         <hr className="border-t border-gray-200" />
       </div>
+      */}
       
       <nav className="flex-1 pt-0 flex flex-col px-3 space-y-1 overflow-y-auto">
         {/* Dashboard link */}
@@ -108,6 +112,7 @@ export default function Sidebar({ openAddJobUrlModal }: SidebarProps) {
         </Link>
         
         {/* Application Copilot link */}
+        {/*
         <Link 
           href="/copilot"
           className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md ${
@@ -120,6 +125,7 @@ export default function Sidebar({ openAddJobUrlModal }: SidebarProps) {
           <span>Application Copilot</span>
           <span className="ml-2 px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded">Testing</span>
         </Link>
+        */}
       </nav>
       
       {/* Quick Actions - directly after navigation */}
