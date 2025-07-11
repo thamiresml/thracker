@@ -96,15 +96,90 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
   const selectedCompanyId = watch('companyId');
   const selectedStatus = watch('status');
 
-  // Update appliedDate validation when status changes
+  // Fetch data on mount or when applicationId changes
   useEffect(() => {
-    // When status changes to "Saved", clear the applied date
+    const fetchData = async () => {
+      let defaultFormValues: Partial<ApplicationFormData> = {
+        appliedDate: getLocalDateString(new Date()), // Default for new/parsed applications
+        status: 'Saved', // Default status is Saved for new/parsed
+      };
+      
+      try {
+        const { data: companiesData, error: companiesError } = await supabase
+          .from('companies')
+          .select('id, name, logo')
+          .order('name');
+
+        if (companiesError) throw companiesError;
+        setCompanies(companiesData || []);
+        setFilteredCompanies(companiesData || []);
+
+        if (!applicationId && initialData) { // Applying initialData from URL parse
+          defaultFormValues = {
+            ...defaultFormValues, // Includes today's date and 'Saved' status by default
+            position: initialData.position,
+            status: initialData.status || 'Saved', // Ensure status is set, defaults to 'Saved'
+            location: initialData.location,
+            salary: initialData.salary,
+            jobPostingUrl: initialData.jobPostingUrl,
+            jobDescription: initialData.jobDescription ?? initialData.notes,
+            // appliedDate will be today from initial defaultFormValues if status is 'Saved'
+          };
+          if (initialData.status && initialData.status !== 'Saved' && initialData.appliedDate) {
+            defaultFormValues.appliedDate = initialData.appliedDate; // Use provided date if not 'Saved'
+          }
+        }
+
+        if (preselectedCompanyId) {
+          defaultFormValues.companyId = preselectedCompanyId;
+        }
+
+        if (applicationId) { // Editing an existing application
+          const { data: application, error: applicationError } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('id', applicationId)
+            .single();
+
+          if (applicationError) throw applicationError;
+          if (application) {
+            defaultFormValues = {
+              companyId: application.company_id,
+              position: application.position,
+              status: application.status,
+              // If status is "Saved", use existing applied_date or default to today.
+              // Otherwise, use existing applied_date or undefined (will be set to today by effect if empty and status changes to active).
+              appliedDate: application.status === 'Saved' 
+                            ? (application.applied_date || getLocalDateString(new Date())) 
+                            : (application.applied_date || undefined),
+              location: application.location,
+              salary: application.salary,
+              jobPostingUrl: application.job_posting_url,
+              jobDescription: application.job_description
+            };
+          }
+        }
+      } catch (err: unknown) {
+        const error = err as Error;
+        setError(error.message);
+      } finally {
+         reset(defaultFormValues);
+      }
+    };
+    fetchData();
+  }, [applicationId, preselectedCompanyId, initialData, supabase, reset]);
+
+  // Update appliedDate based on status changes by the user
+  useEffect(() => {
     if (selectedStatus === 'Saved') {
-      setValue('appliedDate', undefined);
-    } else if (!watch('appliedDate')) {
-      // When changing from "Saved" to another status and no date is set, set today's date
-      // Use the helper function here too
-      setValue('appliedDate', getLocalDateString(new Date()));
+      // When status is changed to "Saved" by the user, set the date to today.
+      setValue('appliedDate', getLocalDateString(new Date()), { shouldValidate: true, shouldDirty: true });
+    } else { // For statuses other than "Saved"
+      // If changing to a non-"Saved" status (e.g., "Applied") and no date is currently set,
+      // default to today's date.
+      if (!watch('appliedDate')) {
+        setValue('appliedDate', getLocalDateString(new Date()), { shouldValidate: true, shouldDirty: true });
+      }
     }
   }, [selectedStatus, setValue, watch]);
 
@@ -121,72 +196,6 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  // Fetch data on mount or when applicationId changes
-  useEffect(() => {
-    const fetchData = async () => {
-      let defaultFormValues: Partial<ApplicationFormData> = {
-        appliedDate: getLocalDateString(new Date()),
-        status: 'Saved',
-      };
-      
-      try {
-        const { data: companiesData, error: companiesError } = await supabase
-          .from('companies')
-          .select('id, name, logo')
-          .order('name');
-
-        if (companiesError) throw companiesError;
-        setCompanies(companiesData || []);
-        setFilteredCompanies(companiesData || []);
-
-        if (!applicationId && initialData) {
-          defaultFormValues = {
-            ...defaultFormValues,
-            position: initialData.position,
-            status: initialData.status || 'Saved',
-            location: initialData.location,
-            salary: initialData.salary,
-            jobPostingUrl: initialData.jobPostingUrl,
-            jobDescription: initialData.jobDescription ?? initialData.notes,
-          };
-        }
-
-        if (preselectedCompanyId) {
-          defaultFormValues.companyId = preselectedCompanyId;
-        }
-
-        if (applicationId) {
-          const { data: application, error: applicationError } = await supabase
-            .from('applications')
-            .select('*')
-            .eq('id', applicationId)
-            .single();
-
-          if (applicationError) throw applicationError;
-          if (application) {
-            defaultFormValues = {
-              companyId: application.company_id,
-              position: application.position,
-              status: application.status,
-              appliedDate: application.applied_date || undefined,
-              location: application.location,
-              salary: application.salary,
-              jobPostingUrl: application.job_posting_url,
-              jobDescription: application.job_description
-            };
-          }
-        }
-      } catch (err: unknown) {
-        const error = err as Error;
-        setError(error.message);
-      } finally {
-         reset(defaultFormValues);
-      }
-    };
-
-    fetchData();
-  }, [applicationId, preselectedCompanyId, initialData, supabase, reset]);
 
   // Effect to handle initial company state from props (preselectedCompanyId, initialData)
   useEffect(() => {
@@ -511,22 +520,17 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
                   {selectedStatus === 'Saved' ? 'Saved Date' : 'Applied Date'}
                 </div>
               </label>
-              {selectedStatus === 'Saved' ? (
-                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
-                  Not applicable
-                </div>
-              ) : (
-                <input
-                  type="date"
-                  id="appliedDate"
-                  className={`w-full rounded-md border ${
-                    errors.appliedDate ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
-                  } shadow-sm focus:outline-none px-3 py-2`}
-                  {...register('appliedDate', { 
-                    required: selectedStatus !== 'Saved' ? 'Application date is required' : false 
-                  })}
-                />
-              )}
+              {/* Date input is now always shown */}
+              <input
+                type="date"
+                id="appliedDate"
+                className={`w-full rounded-md border ${
+                  errors.appliedDate ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-purple-500 focus:ring-purple-500'
+                } shadow-sm focus:outline-none px-3 py-2`}
+                {...register('appliedDate', { 
+                  required: `${selectedStatus === 'Saved' ? 'Saved' : 'Application'} date is required`
+                })}
+              />
               {errors.appliedDate && (
                 <p className="mt-1 text-xs text-red-600">{errors.appliedDate.message}</p>
               )}

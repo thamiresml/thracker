@@ -10,6 +10,7 @@ import { CONTACT_STATUSES } from '@/types/common';
 import { ApiError, Company } from '@/types/common';
 import CompanyForm from '@/app/target-companies/CompanyForm';
 import CustomSelect from '@/components/ui/CustomSelect';
+import InteractionForm from './InteractionForm';
 
 interface ContactFormData {
   name: string;
@@ -52,6 +53,10 @@ export default function ContactForm({
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [showInteractionModal, setShowInteractionModal] = useState(false);
+  const [showInteractionConfirmation, setShowInteractionConfirmation] = useState(false);
+  const [newlyCreatedContactId, setNewlyCreatedContactId] = useState<number | null>(null);
+  const [isExiting, setIsExiting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Default values for the form
@@ -232,23 +237,27 @@ export default function ContactForm({
           .eq('id', contactId);
 
         if (error) throw error;
+        
+        // For updates, just refresh and close
+        router.refresh();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        onClose();
       } else {
         // Create new
-        const { error } = await supabase
+        const { data: newContact, error } = await supabase
           .from('contacts')
-          .insert(contactData);
+          .insert(contactData)
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // Store the newly created contact ID
+        setNewlyCreatedContactId(newContact.id);
+        
+        // Show the interaction confirmation modal
+        setShowInteractionConfirmation(true);
       }
-
-      // Refresh page data
-      router.refresh();
-
-      // Wait a bit to ensure the data is refreshed before closing
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Close the form
-      onClose();
     } catch (error) {
       const apiError = error as ApiError;
       setError(apiError.message || 'Failed to save contact');
@@ -256,6 +265,28 @@ export default function ContactForm({
       setIsLoading(false);
     }
   };
+
+  // Handle interaction modal close
+  const handleInteractionModalClose = () => {
+    setIsExiting(true);
+    router.push('/networking');
+  };
+
+  // Handle confirmation modal responses
+  const handleAddInteraction = () => {
+    setShowInteractionConfirmation(false);
+    setShowInteractionModal(true);
+  };
+
+  const handleSkipInteraction = () => {
+    setIsExiting(true);
+    router.push('/networking');
+  };
+
+  // Render nothing during exit to prevent flash
+  if (isExiting) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50">
@@ -559,6 +590,46 @@ export default function ContactForm({
           <CompanyForm 
             onClose={() => setShowCompanyModal(false)}
             initialData={{ name: companySearchQuery }}
+          />
+        </div>
+      )}
+
+      {/* Interaction Confirmation Modal */}
+      {showInteractionConfirmation && (
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[70]">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Contact Created Successfully!
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Would you like to add your first interaction with this contact? This will help you track your networking progress.
+              </p>
+              <div className="flex space-x-3 justify-center">
+                <button
+                  onClick={handleSkipInteraction}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Skip for Now
+                </button>
+                <button
+                  onClick={handleAddInteraction}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Add Interaction
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interaction Modal */}
+      {showInteractionModal && newlyCreatedContactId && (
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[80]">
+          <InteractionForm 
+            onClose={handleInteractionModalClose}
+            preselectedContactId={newlyCreatedContactId}
           />
         </div>
       )}

@@ -2,10 +2,12 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Edit2 } from 'lucide-react';
 import CompanyLogo from '@/components/CompanyLogo';
 import { useRouter } from 'next/navigation';
 import { Application } from '@/types/common';
+import { useState } from 'react';
+import InlineStatusEditor from './InlineStatusEditor';
 
 interface ApplicationsTableProps {
   applications: Application[];
@@ -19,6 +21,7 @@ export default function ApplicationsTable({
   sortOrder
 }: ApplicationsTableProps) {
   const router = useRouter();
+  const [editingStatusId, setEditingStatusId] = useState<number | null>(null);
   
   // Function to handle column header click for sorting
   const handleSort = (column: string) => {
@@ -45,6 +48,19 @@ export default function ApplicationsTable({
       // Inactive sortable column: Show default indicator with muted color
       return <ChevronsUpDown className="w-4 h-4 ml-1 inline-block text-gray-400" />;
     }
+  };
+
+  const handleStatusChange = () => {
+    setEditingStatusId(null);
+    // The InlineStatusEditor will handle the API call and page refresh
+  };
+
+  const handleCancelEdit = () => {
+    setEditingStatusId(null);
+  };
+
+  const startEditingStatus = (applicationId: number) => {
+    setEditingStatusId(applicationId);
   };
   
   // Check if we have applications to display
@@ -130,9 +146,27 @@ export default function ApplicationsTable({
                 )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(application.status)}`}>
-                  {application.status}
-                </span>
+                {editingStatusId === application.id ? (
+                  <InlineStatusEditor
+                    applicationId={application.id}
+                    currentStatus={application.status}
+                    onStatusChange={handleStatusChange}
+                    onCancel={handleCancelEdit}
+                  />
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(application.status)}`}>
+                      {application.status}
+                    </span>
+                    <button
+                      onClick={() => startEditingStatus(application.id)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Edit status"
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
                 {application.salary && (
                   <div className="text-xs text-gray-500 mt-1">{application.salary}</div>
                 )}
