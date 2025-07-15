@@ -497,12 +497,11 @@ export default function TaskBoard({ weekStartFormatted, userId, weekDisplayText 
       {/* Task Modal */}
       {isTaskModalOpen && (
         <TaskModal
-          task={editingTask}
+          initialTask={editingTask}
+          taskId={editingTask?.id}
           onClose={() => setIsTaskModalOpen(false)}
           onSave={onTaskSaved}
-          userId={userId}
-          defaultStatus={editingTask?.status || statusForNewTask}
-          weekStartDate={weekStartFormatted}
+          initialStatus={statusForNewTask}
         />
       )}
     </>

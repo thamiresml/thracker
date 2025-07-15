@@ -52,7 +52,8 @@ export default function ApplicationsTable({
 
   const handleStatusChange = () => {
     setEditingStatusId(null);
-    // The InlineStatusEditor will handle the API call and page refresh
+    // Force a refresh of the page data
+    router.refresh();
   };
 
   const handleCancelEdit = () => {

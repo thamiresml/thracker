@@ -289,7 +289,12 @@ export default function ApplicationForm({ onClose, applicationId, preselectedCom
       if (!user) throw new Error('User not authenticated');
 
       // Determine if we need an applied date based on status
-      const applied_date = data.status === 'Saved' ? null : data.appliedDate;
+      let applied_date = data.status === 'Saved' ? null : data.appliedDate;
+      
+      // If status is changing to a non-Saved status and there's no applied date, set it to today
+      if (data.status !== 'Saved' && !applied_date) {
+        applied_date = getLocalDateString(new Date());
+      }
 
       // 4) Insert/update
       if (applicationId) {
