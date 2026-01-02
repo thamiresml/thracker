@@ -12,7 +12,6 @@ import {
 } from './parser';
 import type { EmailSyncResult } from '@/types/gmail';
 import type { Company } from '@/types/common';
-import type { Contact } from '@/types/networking';
 
 interface SyncOptions {
   userId: string;
@@ -27,14 +26,14 @@ interface SyncOptions {
 }
 
 export class GmailSyncService {
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: Awaited<ReturnType<typeof createClient>>;
   private gmailClient: GmailClient;
   private userId: string;
   private gmailConnectionId: number;
   private userEmail: string;
 
   constructor(
-    supabase: ReturnType<typeof createClient>,
+    supabase: Awaited<ReturnType<typeof createClient>>,
     gmailClient: GmailClient,
     userId: string,
     gmailConnectionId: number,
@@ -239,14 +238,7 @@ export class GmailSyncService {
    * Creates an interaction from an email
    */
   private async createInteraction(
-    parsedEmail: {
-      messageId: string;
-      threadId: string;
-      subject: string;
-      snippet: string;
-      date: string;
-      isFromUser: boolean;
-    },
+    parsedEmail: import('@/types/gmail').ParsedEmail,
     contactEmail: string
   ): Promise<boolean> {
     try {
