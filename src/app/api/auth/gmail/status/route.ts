@@ -3,9 +3,18 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { isGmailConfigured } from '@/lib/gmail/config';
 
 export async function GET() {
   try {
+    // Check if Gmail is configured
+    if (!isGmailConfigured()) {
+      return NextResponse.json(
+        { error: 'Gmail integration is not configured' },
+        { status: 503 }
+      );
+    }
+
     const supabase = await createClient();
 
     // Get current user

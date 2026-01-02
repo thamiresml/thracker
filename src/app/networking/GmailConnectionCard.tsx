@@ -27,6 +27,7 @@ export default function GmailConnectionCard() {
   const [status, setStatus] = useState<GmailConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [isConfigured, setIsConfigured] = useState(true);
   const [syncResult, setSyncResult] = useState<{
     success: boolean;
     message: string;
@@ -36,8 +37,17 @@ export default function GmailConnectionCard() {
   const fetchStatus = async () => {
     try {
       const response = await fetch('/api/auth/gmail/status');
+
+      // Check if Gmail is not configured
+      if (response.status === 503) {
+        setIsConfigured(false);
+        setLoading(false);
+        return;
+      }
+
       const data = await response.json();
       setStatus(data);
+      setIsConfigured(true);
     } catch (error) {
       console.error('Failed to fetch Gmail status:', error);
     } finally {
@@ -139,6 +149,36 @@ export default function GmailConnectionCard() {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      </div>
+    );
+  }
+
+  // Show setup instructions if Gmail is not configured
+  if (!isConfigured) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gray-100 rounded-lg">
+              <Mail className="h-6 w-6 text-gray-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Gmail Integration</h3>
+              <p className="text-sm text-gray-600">
+                Not configured yet
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-900 mb-2">
+            <strong>Gmail integration is not set up yet.</strong>
+          </p>
+          <p className="text-sm text-yellow-800">
+            To enable automatic contact and email syncing, you need to configure Google OAuth credentials.
+            See <code className="bg-yellow-100 px-1 py-0.5 rounded">GMAIL_SETUP.md</code> for setup instructions.
+          </p>
         </div>
       </div>
     );

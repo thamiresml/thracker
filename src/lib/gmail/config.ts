@@ -1,8 +1,13 @@
 // Gmail OAuth and API Configuration
 
+// Check if Gmail integration is configured
+export const isGmailConfigured = () => {
+  return !!(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET);
+};
+
 export const GMAIL_CONFIG = {
-  clientId: process.env.GMAIL_CLIENT_ID!,
-  clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+  clientId: process.env.GMAIL_CLIENT_ID || '',
+  clientSecret: process.env.GMAIL_CLIENT_SECRET || '',
   redirectUri: process.env.GMAIL_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`,
 
   // Gmail API scopes
