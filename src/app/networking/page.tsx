@@ -7,6 +7,7 @@ import ContactsEmptyState from './ContactsEmptyState';
 import ContactsList from './ContactList';
 import ContactsFilter from './ContactsFilter';
 import AddContactButton from './AddContactButton';
+import GmailConnectionCard from './GmailConnectionCard';
 import { Contact } from '@/types/networking';
 
 export const dynamic = 'force-dynamic';
@@ -215,11 +216,16 @@ export default async function NetworkingPage({
   
   return (
     <DashboardLayout>
-      <PageHeader 
-        title="Network Contacts" 
+      <PageHeader
+        title="Network Contacts"
         action={<AddContactButton />}
       />
-      
+
+      {/* Gmail Integration Card */}
+      <div className="mb-6">
+        <GmailConnectionCard />
+      </div>
+
       {/* Show Empty State only if the user has NO contacts overall */}
       {contacts.length === 0 ? (
         <ContactsEmptyState />
@@ -227,16 +233,16 @@ export default async function NetworkingPage({
         /* Otherwise, always show filters and the list (list handles empty filtered results) */
         <div className="space-y-6">
           {/* Search and Filters */}
-          <ContactsFilter 
+          <ContactsFilter
             statuses={availableStatuses}
             currentStatus={status}
             currentQuery={query}
             currentIsAlumni={isAlumni}
           />
-          
+
           {/* Contacts List */}
           <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-            <ContactsList 
+            <ContactsList
               contacts={processedContacts}
               sortBy={sortBy}
               sortOrder={sortOrder}

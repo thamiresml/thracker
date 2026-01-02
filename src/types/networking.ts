@@ -34,6 +34,13 @@ export interface Interaction {
   created_at: string;
   updated_at: string;
   contact?: Contact;
+  // Gmail integration fields
+  gmail_message_id?: string;
+  gmail_thread_id?: string;
+  is_gmail_synced?: boolean;
+  email_subject?: string;
+  email_snippet?: string;
+  email_direction?: 'sent' | 'received';
 }
 
 // Contact statuses
