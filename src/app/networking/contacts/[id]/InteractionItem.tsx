@@ -3,7 +3,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Calendar, Edit, Mail } from 'lucide-react';
+import { Calendar, Edit } from 'lucide-react';
 import DeleteInteractionButton from '@/app/networking/DeleteInteractionButton';
 
 interface InteractionItemProps {
@@ -13,10 +13,6 @@ interface InteractionItemProps {
     interaction_date: string;
     notes?: string;
     follow_up_date?: string | null;
-    is_gmail_synced?: boolean;
-    email_subject?: string;
-    email_snippet?: string;
-    email_direction?: 'sent' | 'received';
   };
   returnUrl?: string;
   onDelete?: () => void;
@@ -66,18 +62,10 @@ export default function InteractionItem({
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
       <div className="flex justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
-              {interaction.interaction_type}
-            </span>
-            {interaction.is_gmail_synced && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                <Mail className="h-3 w-3" />
-                Gmail {interaction.email_direction === 'sent' ? 'Sent' : 'Received'}
-              </span>
-            )}
-          </div>
+        <div>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getInteractionTypeClass(interaction.interaction_type)}`}>
+            {interaction.interaction_type}
+          </span>
           <p className="text-sm text-gray-500 mt-1">
             <Calendar className="inline-block h-4 w-4 mr-1" />
             {formatDate(interaction.interaction_date)}
@@ -86,11 +74,6 @@ export default function InteractionItem({
             <p className="text-sm text-indigo-600 mt-1">
               <Calendar className="inline-block h-4 w-4 mr-1" />
               Follow-up scheduled: {formatDate(interaction.follow_up_date)}
-            </p>
-          )}
-          {interaction.email_subject && (
-            <p className="text-sm font-medium text-gray-700 mt-2">
-              {interaction.email_subject}
             </p>
           )}
         </div>
