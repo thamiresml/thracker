@@ -7,8 +7,14 @@ import ContactsEmptyState from './ContactsEmptyState';
 import ContactsList from './ContactList';
 import ContactsFilter from './ContactsFilter';
 import AddContactButton from './AddContactButton';
-import GmailConnectionCard from './GmailConnectionCard';
+import dynamic from 'next/dynamic';
 import { Contact } from '@/types/networking';
+
+// Dynamically import Gmail component to prevent SSR/build issues
+const GmailConnectionCard = dynamic(() => import('./GmailConnectionCard'), {
+  ssr: false,
+  loading: () => <div className="bg-white rounded-lg border border-gray-200 p-6 h-32 animate-pulse" />,
+});
 
 export const dynamic = 'force-dynamic';
 

@@ -106,7 +106,7 @@ function isProtectedRoute(pathname: string): boolean {
 export const config = {
   matcher: [
     '/',
-    '/landing',
+    '/landing/:path*',
     '/applications/:path*',
     '/networking/:path*',
     '/target-companies/:path*',
