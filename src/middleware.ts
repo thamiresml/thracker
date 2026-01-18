@@ -4,17 +4,50 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
+// Helper function to get session with timeout protection
+async function getSessionWithTimeout(
+  supabase: ReturnType<typeof createServerClient>,
+  timeoutMs: number = 3000
+): Promise<{ session: any }> {
+  return Promise.race([
+    supabase.auth.getSession(),
+    new Promise<{ session: null }>((resolve) =>
+      setTimeout(() => resolve({ session: null }), timeoutMs)
+    ),
+  ])
+}
+
 export async function middleware(request: NextRequest) {
+  // Skip middleware for static files and API routes
+  if (
+    request.nextUrl.pathname.startsWith('/_next') ||
+    request.nextUrl.pathname.startsWith('/api') ||
+    request.nextUrl.pathname.startsWith('/favicon') ||
+    request.nextUrl.pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot)$/)
+  ) {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  // Check if Supabase env vars are available
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing Supabase environment variables')
+    // If env vars are missing, allow access but log error
+    return response
+  }
+
+  let session = null
+
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
       cookies: {
         get(name) {
           return request.cookies.get(name)?.value
@@ -56,11 +89,17 @@ export async function middleware(request: NextRequest) {
           })
         },
       },
-    }
-  )
+    })
 
-  // Refresh session if expired - required for Server Components
-  const { data: { session } } = await supabase.auth.getSession()
+    // Get session with timeout protection (3 second timeout)
+    const { data } = await getSessionWithTimeout(supabase, 3000)
+    session = data?.session || null
+  } catch (error) {
+    // If session check fails, log error but don't block request
+    console.error('Middleware session check error:', error)
+    // Continue without session - let the route handlers deal with auth
+    session = null
+  }
   
   // Root route handling (/)
   if (request.nextUrl.pathname === '/') {
@@ -103,14 +142,17 @@ function isProtectedRoute(pathname: string): boolean {
 }
 
 // Only run middleware on specific routes
+// Exclude static files, API routes, and Next.js internals
 export const config = {
   matcher: [
-    '/',
-    '/landing',
-    '/applications/:path*',
-    '/networking/:path*',
-    '/target-companies/:path*',
-    '/weekly-plan/:path*',
-    '/copilot/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (images, etc.)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot)).*)',
   ],
 }
